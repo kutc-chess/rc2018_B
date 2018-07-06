@@ -66,6 +66,7 @@ int main(void) {
   UPDATELOOP(Controller,
              !(Controller.button(START) && Controller.button(CROSS))) {
     //----------Sensar----------
+    // GY521
     if (Controller.button(RIGHT) && Controller.button(SQUARE)) {
       gyro.resetYaw(0);
     }
@@ -91,13 +92,7 @@ int main(void) {
     }
     */
 
-    moment = -(-128 - Controller.stick(RIGHT_T));
-    if (moment > 250) {
-      moment = 250;
-    }
-    if (Controller.button(L1)) {
-      moment = -moment;
-    }
+    moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T));
 
     // Input
     stickX = Controller.stick(RIGHT_X);
@@ -150,15 +145,15 @@ int main(void) {
 
     //----------Don't Change the order----------
     // Move Parallel
-    twoWheel = sixWheel = tenWheel = slant;
+    twoWheel = sixWheel = tenWheel = (double)slant / 250;
     twoWheel *= -sin(rad - M_PI / 6);
     sixWheel *= -cos(rad);
     tenWheel *= sin(rad + M_PI / 6);
 
     // Move Rotation
-    twoWheel += moment;
-    sixWheel += moment;
-    tenWheel += moment;
+    twoWheel += (double)moment / 255;
+    sixWheel += (double)moment / 255;
+    tenWheel += (double)moment / 255;
 
     // Regulation Max
     slowWheel = 1.0;
@@ -182,9 +177,10 @@ int main(void) {
     }
 
     // Output
-    cout << "two:" << ms.send(1, 2, 250 * twoWheel * slowWheel);
-    cout << "six:" << ms.send(2, 2, 250 * sixWheel * slowWheel);
-    cout << "ten:" << ms.send(3, 2, 250 * tenWheel * slowWheel) << endl;
+    cout << "two" << ms.send(1, 2, 250 * twoWheel * slowWheel);
+    cout << "six" << ms.send(2, 2, 250 * sixWheel * slowWheel);
+    cout << "ten" << ms.send(3, 2, 250 * tenWheel * slowWheel);
+    cout << endl;
 
     //----------Emergency----------
     if (Controller.press(SELECT)) {
