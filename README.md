@@ -2,11 +2,14 @@
 目指せ国技館!!!!
 
 ## しおり
-* 自動ロボット:[立ルンです](https://github.com/Kitasola/rc2018_B/blob/master/ttrnds)
+* [立ルンです](https://github.com/Kitasola/rc2018_B/blob/master/ttrnds)
+* [超音波センサ](https://github.com/Kitasola/rc2018_B/blob/master/UltraSonic)
 
 ## ライブラリ
+* [PigpioMS](https://github.com/Kitasola/PigpioMS)
+* [ScrpMotor2018]()
 * [ジャイロ](https://github.com/Kitasola/Sensor/blob/master/GY521)
 * [ロータリーエンコーダー](https://github.com/Kitasola/Sensor/blob/master/RotaryInc)
 
 ## サンプルプログラム
-* [超音波センサ(URM37 V4.0 Ultrasonic Sensor)](https://www.dfrobot.com/wiki/index.php/URM37_V4.0_Ultrasonic_Sensor_(SKU:SEN0001))
+制御は完全に理解しているのでサンプルなどいらんわ
