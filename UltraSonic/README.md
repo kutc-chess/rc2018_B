@@ -1,18 +1,10 @@
-# ScrpMotor2017
+# ScrpMotor2018 with 超音波センサ
 
-明石高専のMDD(Arduino)のプログラムです
-以下の特徴があります
+ARRCのMDD(Arduino)のプログラム()に超音波センサ読み取り機能がつきました
 
-* RasberryPiをmasterとしてシリアル通信で動きます
-* 前ScrpMoterを改変しました
+* 超音波センサはURM37 V4.0
+* 読み取りモードはパッシブPWMモード
+* cmd=20 の返り値が超音波センサが測定した距離(cm)となる
 
-  * 2つのモーターから3つのモーターへ
-  * 周波数を変更・設定
-  * シリアル通信のON/OFF設定用のPIを変更
- 
-## 名状しがたいリファレンスのようなもの
-
-* 2,3,4
-  Motor回す
-* 5,6,7
-  Motorゆっくり止める
+## 参考文献
+* [サンプルプログラム](https://www.dfrobot.com/wiki/index.php/URM37_V4.0_Ultrasonic_Sensor_(SKU:SEN0001))
