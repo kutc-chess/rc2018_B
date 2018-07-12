@@ -1,9 +1,8 @@
-//立てルンですのプログラム, MainLoop from 116
+//立ルンですのプログラム, MainLoop from 77
 #include "/home/pi/PigpioMS/PigpioMS.hpp"
 #include "/home/pi/RasPiDS3/RasPiDS3.hpp"
 #include "/home/pi/Sensor/GY521/GY521.hpp"
-#include <atomic>
-#include <cstdio>
+#include <algorithm>
 #include <iostream>
 #include <math.h>
 #include <stdio.h>
@@ -38,73 +37,74 @@ int main(void) {
   struct timespec now, prev;
   long double delta;
 
-  //----------Movement----------
-  // froont = 12
-  // OutPut
-  double sixWheel, twoWheel, tenWheel;
-  constexpr int MaxWheel = 255;
-  // Input bia field
-  double velocityF, radF, slowWheel;
-  // Input bia Robot
-  int vXR, vYR, moment;
-  double radR;
-  // Lock Angle in PID
-  // Result: yaw, Goal: yawLock, Control: moment
-  double yaw = 0;
-  /*
-  bool flagLock = false;
-  double yawLock, yawDev;
-  constexpr double yawProp = 7.5;
-  */
-
   //----------Guess Point----------
   // bia UltraSonic
   // Origin Point = Center of Robot Square
-  constexpr int measureX0[2] = {100, 100};
-  constexpr int measureY0[2] = {100, 100};
-  int distX = 0, distY = 0;
-  int nowX = 110, nowY = 110;
+  constexpr int measureX0 = 300, measureY0 = -300;
+  int nowX = 0, nowY = 0;
+  constexpr int firstX = 654, firstrY = 1454;
+  constexpr double firstDeg = -5.5;
+
+  //----------Movement----------
+  // froont = 12
+  // OutPut
+  int sixWheel, twoWheel, tenWheel;
+  double slowWheel;
+  constexpr int MaxWheel = 255;
+  // Input bia Robot
+  int vXR, vYR, moment;
+  // Input bia Field
+  double velocityF;
+  constexpr double angleF = M_PI / 6 - firstDeg / 180 * M_PI;
+  // Lock Angle in PID
+  // Result: yaw, Goal: yawLock, Control: moment
+  double yaw = 0, yawDiff, yawPrev = firstDeg;
+  constexpr double YawLock = firstDeg;
+  constexpr double yawProp = 7.5, yawInt = 0, yawDeff = 0;
 
   //----------Calibration----------
-  //静止状態を作る SQUAREとRIGHTボタンが押されるまで待機
   UPDATELOOP(Controller,
              !(Controller.button(RIGHT) && Controller.button(SQUARE))) {}
-  // GY521 gyro;
-  // gyro.start();
+  GY521 gyro;
+  gyro.start();
+  gyro.resetYaw(YawLock);
 
   cout << "Main Start" << endl;
   gpioWrite(BCheck, 1);
 
+  // MainLoop
   UPDATELOOP(Controller,
              !(Controller.button(START) && Controller.button(CROSS))) {
     //----------Sensar----------
     // GY521
-    if (Controller.button(RIGHT) && Controller.button(SQUARE)) {
-      // gyro.resetYaw(0);
-    }
-    // yaw = gyro.getYaw();
+    yaw = gyro.getYaw();
     // time
     now = prev;
     clock_gettime(CLOCK_REALTIME, &now);
     delta = now.tv_sec - prev.tv_sec +
             (long double)(now.tv_nsec - prev.tv_nsec) / 1000000000;
 
-    //----------Movement----------
-    moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T));
-    int stickX = Controller.stick(RIGHT_X);
-    int stickY = -Controller.stick(RIGHT_Y);
-    // Transport Polar Coordinate
-    radF = atan2(stickY, stickX);
-    if (radF >= 2 * M_PI) {
-      radF -= 2 * M_PI;
-    } else if (radF < 0) {
-      radF += 2 * M_PI;
-    }
-    velocityF = hypot(stickX, stickY) * (fabs(0.58 * cos(2 * radF)) + 1.4);
-    radR = radF - (yaw / 180 * M_PI);
-    vXR = velocityF * cos(radR);
-    vYR = velocityF * sin(radR);
+    //----------Guess Point----------
+    nowX = ms.send(2, 20, 0) + measureX0;
+    nowY = ms.send(3, 20, 0) + measureY0;
 
+    //----------Movement----------
+    // Input bia Field
+    if (nowX < 2000) {
+      velocityF = clamp((double)nowX - firstX, MaxWheel / 2 * ROOT3, 0.0);
+    } else if (nowY > 0) {
+      velocityF = 0;
+    } else {
+    }
+
+    // Change Robot frome Field
+    vXR = velocityF * cos(angleF - yaw * M_PI / 180);
+    vYR = velocityF * sin(angleF - yaw * M_PI / 180);
+    yawDiff = yaw - yawPrev;
+    moment = yawProp * yawDiff;
+    yawPrev = yaw;
+
+    // Nomal
     twoWheel = -vXR / 2 + ROOT3 * vYR / 2 + moment;
     sixWheel = vXR + moment;
     tenWheel = -vXR / 2 - ROOT3 / 2 * vYR + moment;
@@ -123,7 +123,7 @@ int main(void) {
 
     //----------Finish----------
     // Move Boost
-    if (Controller.button(DOWN)) {
+    if (Controller.button(L1)) {
       slowWheel *= 0.2;
     } else if (!Controller.button(R1)) {
       slowWheel *= 0.5;
@@ -154,7 +154,6 @@ int main(void) {
   }
   cout << "Main Finish" << endl;
   ms.send(255, 255, 0);
-  ms.send(3, 100, 0);
   gpioWrite(BCheck, 0);
   return 0;
 }
