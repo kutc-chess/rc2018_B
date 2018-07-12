@@ -11,7 +11,7 @@
 #include <time.h>
 #include <wiringPi.h>
 #include <wiringPiI2C.h>
-#define M_PI_6 (M_PI / 6)
+#define ROOT3 (1.7320508)
 
 using namespace std;
 using namespace RPDS3;
@@ -32,33 +32,45 @@ int main(void) {
   // Check LED
   constexpr int BCheck = 13;
   gpioSetMode(BCheck, OUTPUT);
-  constexpr int MAX = 250;
+  //  constexpr int MAX = 250;
 
   //---------Time----------
   struct timespec now, prev;
   long double delta;
 
   //----------Movement----------
-  // Nomal
-  // 12時が正面
+  // froont = 12
+  // OutPut
   double sixWheel, twoWheel, tenWheel;
-  double rad, slowWheel;
-  double yaw, yawOffset = 0;
-  int stickX, stickY, slant, moment;
+  constexpr int MaxWheel = 255;
+  // Input bia field
+  double velocityF, radF, slowWheel;
+  // Input bia Robot
+  int vXR, vYR, moment;
+  double radR;
   // Lock Angle in PID
   // Result: yaw, Goal: yawLock, Control: moment
+  double yaw = 0;
   /*
   bool flagLock = false;
   double yawLock, yawDev;
   constexpr double yawProp = 7.5;
   */
 
+  //----------Guess Point----------
+  // bia UltraSonic
+  // Origin Point = Center of Robot Square
+  constexpr int measureX0[2] = {100, 100};
+  constexpr int measureY0[2] = {100, 100};
+  int distX = 0, distY = 0;
+  int nowX = 110, nowY = 110;
+
   //----------Calibration----------
   //静止状態を作る SQUAREとRIGHTボタンが押されるまで待機
   UPDATELOOP(Controller,
              !(Controller.button(RIGHT) && Controller.button(SQUARE))) {}
-  GY521 gyro;
-  gyro.start();
+  // GY521 gyro;
+  // gyro.start();
 
   cout << "Main Start" << endl;
   gpioWrite(BCheck, 1);
@@ -68,105 +80,46 @@ int main(void) {
     //----------Sensar----------
     // GY521
     if (Controller.button(RIGHT) && Controller.button(SQUARE)) {
-      gyro.resetYaw(0);
+      // gyro.resetYaw(0);
     }
-    yaw = gyro.getYaw();
+    // yaw = gyro.getYaw();
+    // time
     now = prev;
     clock_gettime(CLOCK_REALTIME, &now);
     delta = now.tv_sec - prev.tv_sec +
             (long double)(now.tv_nsec - prev.tv_nsec) / 1000000000;
 
-    /*
-    if (Controller.press(UP)) {
-      flagLock = !flagLock;
-    }
-    if (flagLock) {
-      yawDev = yaw - yawLock;
-      if (yawDev > 180) {
-        yawDev -= 360;
-      }
-      moment = yawProp * yawDev;
-    } else {
-      moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T));
-      yawLock = yaw;
-    }
-    */
-
+    //----------Movement----------
     moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T));
-
-    // Input
-    stickX = Controller.stick(RIGHT_X);
-    stickY = -Controller.stick(RIGHT_Y);
-    if (!stickX && !stickY) {
-      stickX = Controller.stick(LEFT_X);
-      stickY = -Controller.stick(LEFT_Y);
-      // Transport Polar Coordinate
-      // 8方位
-      rad = atan2(stickY, stickX) - (yaw / 180 * M_PI);
-      if (rad >= 2 * M_PI) {
-        rad -= 2 * M_PI;
-      } else if (rad < 0) {
-        rad += 2 * M_PI;
-      }
-
-      if (0 <= rad && rad < M_PI_4 / 2) {
-        rad = 0;
-      } else if (M_PI_4 / 2 <= rad && rad < M_PI_4 / 2 * 3) {
-        rad = M_PI_4;
-      } else if (M_PI_4 / 2 * 3 <= rad && rad < M_PI_4 / 2 * 5) {
-        rad = M_PI_2;
-      } else if (M_PI_4 / 2 * 5 <= rad && rad < M_PI_4 / 2 * 7) {
-        rad = M_PI_4 * 3;
-      } else if (M_PI_4 / 2 * 7 <= rad && rad < M_PI_4 / 2 * 9) {
-        rad = M_PI;
-      } else if (M_PI_4 / 2 * 9 <= rad && rad < M_PI_4 / 2 * 11) {
-        rad = M_PI_4 * 5;
-      } else if (M_PI_4 / 2 * 11 <= rad && rad < M_PI_4 / 2 * 13) {
-        rad = M_PI_2 * 3;
-      } else if (M_PI_4 / 2 * 13 <= rad && rad < M_PI_4 / 2 * 15) {
-        rad = M_PI_4 * 7;
-      } else if (M_PI_4 / 2 * 15 <= rad && rad < M_PI * 2) {
-        rad = 0;
-      }
-      rad += yawOffset / 180 * M_PI;
-    } else {
-      // Transport Polar Coordinate
-      rad = atan2(stickY, stickX) - (yaw / 180 * M_PI) + yawOffset / 180 * M_PI;
-      if (rad >= 2 * M_PI) {
-        rad -= 2 * M_PI;
-      } else if (rad < 0) {
-        rad += 2 * M_PI;
-      }
+    int stickX = Controller.stick(RIGHT_X);
+    int stickY = -Controller.stick(RIGHT_Y);
+    // Transport Polar Coordinate
+    radF = atan2(stickY, stickX);
+    if (radF >= 2 * M_PI) {
+      radF -= 2 * M_PI;
+    } else if (radF < 0) {
+      radF += 2 * M_PI;
     }
-    slant = hypot(stickX, stickY) * (fabs(0.58 * cos(2 * rad)) + 1.4);
-    if (slant > 250) {
-      slant = 250;
-    }
+    velocityF = hypot(stickX, stickY) * (fabs(0.58 * cos(2 * radF)) + 1.4);
+    radR = radF - (yaw / 180 * M_PI);
+    vXR = velocityF * cos(radR);
+    vYR = velocityF * sin(radR);
 
-    //----------Don't Change the order----------
-    // Move Parallel
-    twoWheel = sixWheel = tenWheel = (double)slant / 250;
-    twoWheel *= -sin(rad - M_PI / 6);
-    sixWheel *= -cos(rad);
-    tenWheel *= sin(rad + M_PI / 6);
-
-    // Move Rotation
-    twoWheel += (double)moment / 255;
-    sixWheel += (double)moment / 255;
-    tenWheel += (double)moment / 255;
+    twoWheel = -vXR / 2 + ROOT3 * vYR / 2 + moment;
+    sixWheel = vXR + moment;
+    tenWheel = -vXR / 2 - ROOT3 / 2 * vYR + moment;
 
     // Regulation Max
     slowWheel = 1.0;
-    if (twoWheel > slowWheel) {
-      slowWheel = twoWheel;
+    if (twoWheel / MaxWheel > slowWheel) {
+      slowWheel = MaxWheel / twoWheel;
     }
-    if (sixWheel > slowWheel) {
-      slowWheel = sixWheel;
+    if (sixWheel / MaxWheel > slowWheel) {
+      slowWheel = MaxWheel / sixWheel;
     }
-    if (tenWheel > slowWheel) {
-      slowWheel = tenWheel;
+    if (tenWheel / MaxWheel > slowWheel) {
+      slowWheel = MaxWheel / tenWheel;
     }
-    slowWheel = 1.0 / slowWheel;
 
     //----------Finish----------
     // Move Boost
@@ -177,10 +130,14 @@ int main(void) {
     }
 
     // Output
-    cout << "two" << ms.send(1, 2, 250 * twoWheel * slowWheel);
-    cout << "six" << ms.send(2, 2, 250 * sixWheel * slowWheel);
-    cout << "ten" << ms.send(3, 2, 250 * tenWheel * slowWheel);
+    cout << "two" << twoWheel * slowWheel;
+    cout << "six" << sixWheel * slowWheel;
+    cout << "ten" << tenWheel * slowWheel;
     cout << endl;
+
+    ms.send(1, 2, 250 * twoWheel * slowWheel);
+    ms.send(2, 2, 250 * sixWheel * slowWheel);
+    ms.send(3, 2, 250 * tenWheel * slowWheel);
 
     //----------Emergency----------
     if (Controller.press(SELECT)) {
