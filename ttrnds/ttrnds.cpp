@@ -3,14 +3,16 @@
 #include "/home/pi/RasPiDS3/RasPiDS3.hpp"
 #include "/home/pi/Sensor/GY521/GY521.hpp"
 #include <algorithm>
+#include <cmath>
 #include <iostream>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <wiringPi.h>
 #include <wiringPiI2C.h>
+#define ROOT2 (1.41421356)
 #define ROOT3 (1.7320508)
+#define M_PI_3 (M_PI / 3)
 
 using namespace std;
 using namespace RPDS3;
@@ -40,23 +42,22 @@ int main(void) {
   //----------Guess Point----------
   // bia UltraSonic
   // Origin Point = Center of Robot Square
-  constexpr int measureX0 = 300, measureY0 = -300;
+  constexpr int measureX0 = 400, measureY0 = 300;
   int nowX = 0, nowY = 0;
   constexpr int firstX = 654, firstrY = 1454;
-  constexpr double firstDeg = -5.5;
+  constexpr double firstDeg = -5;
+  constexpr double UltraReg = 1.05;
 
   //----------Movement----------
-  // froont = 12
   // OutPut
   int sixWheel, twoWheel, tenWheel;
   double slowWheel;
   constexpr int MaxWheel = 255;
-  // Input bia Robot
-  int vXR, vYR, moment;
-  // Input bia Field
-  double velocityF;
-  constexpr double angleF = M_PI / 6 - firstDeg / 180 * M_PI;
-  // Lock Angle in PID
+  // Input Robot View
+  double angleR, moment;
+  // Input Field View
+  double velocityF, angleF = M_PI / 6 - firstDeg / 180 * M_PI;
+  // Lock Angle bia PID
   // Result: yaw, Goal: yawLock, Control: moment
   double yaw = 0, yawDiff, yawPrev = firstDeg;
   constexpr double YawLock = firstDeg;
@@ -67,7 +68,7 @@ int main(void) {
              !(Controller.button(RIGHT) && Controller.button(SQUARE))) {}
   GY521 gyro;
   gyro.start();
-  gyro.resetYaw(YawLock);
+  gyro.resetYaw(firstDeg);
 
   cout << "Main Start" << endl;
   gpioWrite(BCheck, 1);
@@ -85,29 +86,34 @@ int main(void) {
             (long double)(now.tv_nsec - prev.tv_nsec) / 1000000000;
 
     //----------Guess Point----------
-    nowX = ms.send(2, 20, 0) + measureX0;
-    nowY = ms.send(3, 20, 0) + measureY0;
+    nowX = ms.send(2, 20, 0) * 10 * UltraReg + measureX0;
+    nowY = ms.send(3, 20, 0) * 10 * UltraReg + measureY0;
 
     //----------Movement----------
-    // Input bia Field
-    if (nowX < 2000) {
-      velocityF = clamp((double)nowX - firstX, MaxWheel / 2 * ROOT3, 0.0);
-    } else if (nowY > 0) {
-      velocityF = 0;
+    // Input Field View
+    if (nowY > 345) {
+      velocityF = 50 * 2 / ROOT3;
+      angleF = M_PI / 6 - firstDeg / 180 * M_PI;
+    } else if (!(nowX - 2560 < 5 && nowX - 2560 > -5) &&
+               !(nowY - 10 < 5 && nowX - 10 > -5)) {
+      double velocityFX = (2560 - nowX) * (50) / 360;
+      double velocityFY = (nowY - 10) * 10 / 340;
+      velocityF = hypot(velocityFX, velocityFY) / ROOT2 * 2 / ROOT3;
+      angleF = atan2(velocityFY, velocityFX);
     } else {
+      velocityF = 0;
     }
 
-    // Change Robot frome Field
-    vXR = velocityF * cos(angleF - yaw * M_PI / 180);
-    vYR = velocityF * sin(angleF - yaw * M_PI / 180);
+    // Change Field to Robot
     yawDiff = yaw - yawPrev;
     moment = yawProp * yawDiff;
     yawPrev = yaw;
 
     // Nomal
-    twoWheel = -vXR / 2 + ROOT3 * vYR / 2 + moment;
-    sixWheel = vXR + moment;
-    tenWheel = -vXR / 2 - ROOT3 / 2 * vYR + moment;
+    angleR = angleF - yaw * M_PI / 180;
+    twoWheel = velocityF * cos(angleR - M_PI_3) + moment;
+    sixWheel = velocityF * cos(angleR) + moment;
+    tenWheel = velocityF * cos(angleR + M_PI_3) + moment;
 
     // Regulation Max
     slowWheel = 1.0;
@@ -135,9 +141,9 @@ int main(void) {
     cout << "ten" << tenWheel * slowWheel;
     cout << endl;
 
-    ms.send(1, 2, 250 * twoWheel * slowWheel);
-    ms.send(2, 2, 250 * sixWheel * slowWheel);
-    ms.send(3, 2, 250 * tenWheel * slowWheel);
+    ms.send(1, 2, twoWheel * slowWheel);
+    ms.send(2, 2, sixWheel * slowWheel);
+    ms.send(3, 2, tenWheel * slowWheel);
 
     //----------Emergency----------
     if (Controller.press(SELECT)) {
