@@ -5,14 +5,14 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <pigpio.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <wiringPi.h>
-#include <wiringPiI2C.h>
 #define ROOT2 (1.41421356)
 #define ROOT3 (1.7320508)
 #define M_PI_3 (M_PI / 3)
+#define M_PI_6 (M_PI / 6)
 
 using namespace std;
 using namespace RPDS3;
@@ -32,7 +32,7 @@ int main(void) {
   //----------etc.----------
   // Check LED
   constexpr int BCheck = 13;
-  gpioSetMode(BCheck, OUTPUT);
+  gpioSetMode(BCheck, PI_OUTPUT);
   //  constexpr int MAX = 250;
 
   //---------Time----------
@@ -72,6 +72,7 @@ int main(void) {
 
   cout << "Main Start" << endl;
   gpioWrite(BCheck, 1);
+  clock_gettime(CLOCK_REALTIME, &prev);
 
   // MainLoop
   UPDATELOOP(Controller,
@@ -80,16 +81,13 @@ int main(void) {
     // GY521
     yaw = gyro.getYaw();
     // time
-    now = prev;
+    prev = now;
     clock_gettime(CLOCK_REALTIME, &now);
     delta = now.tv_sec - prev.tv_sec +
             (long double)(now.tv_nsec - prev.tv_nsec) / 1000000000;
 
-    //----------Guess Point----------
-    nowX = ms.send(2, 20, 0) * 10 * UltraReg + measureX0;
-    nowY = ms.send(3, 20, 0) * 10 * UltraReg + measureY0;
-
     //----------Movement----------
+    /*
     // Input Field View
     if (nowY > 345) {
       velocityF = 50 * 2 / ROOT3;
@@ -114,6 +112,20 @@ int main(void) {
     twoWheel = velocityF * cos(angleR - M_PI_3) + moment;
     sixWheel = velocityF * cos(angleR) + moment;
     tenWheel = velocityF * cos(angleR + M_PI_3) + moment;
+    */
+    int stickX = Controller.stick(LEFT_X);
+    int stickY = -Controller.stick(LEFT_Y);
+    angleF = atan2(stickY, stickX);
+    velocityF = hypot(stickX, stickY) * (fabs(0.58 * cos(2 * angleF)) + 1.4);
+    if (velocityF > 250) {
+      velocityF = 250;
+    }
+    angleR = angleF - yaw * M_PI / 180;
+    moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T));
+
+    twoWheel = velocityF * -sin(angleR - M_PI_6) + moment;
+    sixWheel = velocityF * -cos(angleR) + moment;
+    tenWheel = velocityF * sin(angleR + M_PI_6) + moment;
 
     // Regulation Max
     slowWheel = 1.0;
@@ -136,14 +148,15 @@ int main(void) {
     }
 
     // Output
-    cout << "two" << twoWheel * slowWheel;
-    cout << "six" << sixWheel * slowWheel;
-    cout << "ten" << tenWheel * slowWheel;
-    cout << endl;
-
+    /*
+   cout << "two" << twoWheel * slowWheel;
+   cout << "six" << sixWheel * slowWheel;
+   cout << "ten" << tenWheel * slowWheel;
+   cout << endl;
+   */
     ms.send(1, 2, twoWheel * slowWheel);
     ms.send(2, 2, sixWheel * slowWheel);
-    ms.send(3, 2, tenWheel * slowWheel);
+    ms.send(3, 2, -tenWheel * slowWheel);
 
     //----------Emergency----------
     if (Controller.press(SELECT)) {
