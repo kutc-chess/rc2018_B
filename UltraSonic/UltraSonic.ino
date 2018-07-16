@@ -16,8 +16,6 @@ void setup() {
   pinMode(MTR1_RVS, OUTPUT);
   pinMode(MTR2_FWD, OUTPUT);
   pinMode(MTR2_RVS, OUTPUT);
-  pinMode(MTR3_FWD, OUTPUT);
-  pinMode(MTR3_RVS, OUTPUT);
   pinMode(MTR1_LED, OUTPUT);
   pinMode(MTR2_LED, OUTPUT);
   pinMode(MTR3_LED, OUTPUT);
@@ -39,9 +37,22 @@ void setup() {
   pinMode(URECHO, INPUT);
 }
 
+int dist = 0;
 unsigned long prev_time = millis();
 void loop() {
   slave.check();
+  if(millis() - prev_time > 100){
+    digitalWrite(URTRIG, LOW);
+    digitalWrite(URTRIG, HIGH);
+    unsigned long lowLevelTime = pulseIn(URECHO, LOW);
+    if(lowLevelTime>=45000){
+      dist = 512;
+    }
+    else{
+      dist = lowLevelTime / 50;
+    }
+    prev_time = millis();
+  }
 }
 
 boolean safeOperation(int rx_data, int& tx_data) {
@@ -112,15 +123,7 @@ boolean driveMtr3(int rx_data, int& tx_data) {
 }
 
 boolean ultraDist(int rx_dara, int& tx_data) {
-  digitalWrite(URTRIG, LOW);
-  digitalWrite(URTRIG, HIGH);
-  unsigned long lowLevelTime = pulseIn(URECHO, LOW);
-  if(lowLevelTime>=45000){
-    return false;
-  }
-  else{
-      tx_data = lowLevelTime / 50;
-  }
+  tx_data = dist;
   return true;
 }
 
