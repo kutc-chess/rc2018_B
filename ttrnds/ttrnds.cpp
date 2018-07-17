@@ -1,7 +1,8 @@
-//立ルンですのプログラム, MainLoop from 77
+// 立ルンですのプログラム, MainLoop from 77
 #include "/home/pi/PigpioMS/PigpioMS.hpp"
 #include "/home/pi/RasPiDS3/RasPiDS3.hpp"
 #include "/home/pi/Sensor/GY521/GY521.hpp"
+#include "/home/pi/Sensor/RotaryInc/RotaryInc.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -13,6 +14,7 @@
 #define ROOT3 (1.7320508)
 #define M_PI_3 (M_PI / 3)
 #define M_PI_6 (M_PI / 6)
+enum wheel { two = 0, six = 1, ten = 2 };
 
 using namespace std;
 using namespace RPDS3;
@@ -69,6 +71,13 @@ int main(void) {
   constexpr double firstDeg = -5;
   constexpr double UltraReg = 1.05;
 
+  //----------IncRotary----------
+  constexpr int RotaryPin[3][2] = {{17, 27}, {22, 10}, {9, 11}};
+  constexpr int Range = 500 * 2;
+  rotaryInc roll[3] = {rotaryInc(17, 27, true), rotaryInc(22, 10, true),
+                       rotaryInc(9, 11, true)};
+  double constexpr Wheel = 101.6 * M_PI;
+
   //----------Movement----------
   // OutPut
   int sixWheel, twoWheel, tenWheel;
@@ -100,6 +109,9 @@ int main(void) {
              !(Controller.button(START) && Controller.button(CROSS))) {
     //----------Sensar----------
     // GY521
+    if (Controller.button(RIGHT) && Controller.button(SQUARE)) {
+      gyro.resetYaw(firstDeg);
+    }
     yaw = gyro.getYaw();
     // time
     prev = now;
@@ -144,9 +156,9 @@ int main(void) {
     angleR = angleF - yaw * M_PI / 180;
     moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T));
 
-    twoWheel = velocityF * -wheel_Func(angleR - M_PI_3) + moment;
+    twoWheel = velocityF * wheel_Func(angleR + M_PI_3) + moment;
     sixWheel = velocityF * -wheel_Func(angleR) + moment;
-    tenWheel = velocityF * -wheel_Func(angleR + M_PI_3) + moment;
+    tenWheel = velocityF * wheel_Func(angleR - M_PI_3) + moment;
 
     // Regulation Max
     slowWheel = 1.0;
@@ -169,16 +181,15 @@ int main(void) {
     }
 
     // Output
+    /*
     cout << "two" << (int)(twoWheel * slowWheel);
     cout << "six" << (int)(sixWheel * slowWheel);
     cout << "ten" << (int)(tenWheel * slowWheel);
-    cout << "Angle" << wheel_Func(angleR) << "," << angleR * 180 / M_PI;
     cout << endl;
-    /*
+   */
     ms.send(1, 2, twoWheel * slowWheel);
     ms.send(2, 2, sixWheel * slowWheel);
     ms.send(3, 2, -tenWheel * slowWheel);
-   */
 
     //----------Emergency----------
     if (Controller.press(SELECT)) {
