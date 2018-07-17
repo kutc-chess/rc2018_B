@@ -19,6 +19,27 @@ using namespace RPDS3;
 using namespace RPMS;
 using namespace RPGY521;
 
+inline double wheel_Func(double rad) {
+  while (rad < 0) {
+    rad += 2 * M_PI;
+  }
+  while (rad >= 2 * M_PI) {
+    rad -= 2 * M_PI;
+  }
+
+  if (0 <= rad && rad < M_PI_6) {
+    return 1;
+  } else if (M_PI_6 <= rad && rad < 5 * M_PI_6) {
+    return (M_PI_2 - rad) * 3 / M_PI;
+  } else if (5 * M_PI_6 <= rad && rad < 7 * M_PI_6) {
+    return -1;
+  } else if (7 * M_PI_6 <= rad && rad < 11 * M_PI_6) {
+    return (rad - 3 * M_PI_2) * 3 / M_PI;
+  } else if (11 * M_PI_6 <= rad && rad < 12 * M_PI_6) {
+    return 1;
+  }
+}
+
 int main(void) {
   MotorSerial ms;
   DualShock3 Controller;
@@ -123,9 +144,9 @@ int main(void) {
     angleR = angleF - yaw * M_PI / 180;
     moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T));
 
-    twoWheel = velocityF * -sin(angleR - M_PI_6) + moment;
-    sixWheel = velocityF * -cos(angleR) + moment;
-    tenWheel = velocityF * sin(angleR + M_PI_6) + moment;
+    twoWheel = velocityF * -wheel_Func(angleR - M_PI_3) + moment;
+    sixWheel = velocityF * -wheel_Func(angleR) + moment;
+    tenWheel = velocityF * -wheel_Func(angleR + M_PI_3) + moment;
 
     // Regulation Max
     slowWheel = 1.0;
@@ -148,15 +169,16 @@ int main(void) {
     }
 
     // Output
+    cout << "two" << (int)(twoWheel * slowWheel);
+    cout << "six" << (int)(sixWheel * slowWheel);
+    cout << "ten" << (int)(tenWheel * slowWheel);
+    cout << "Angle" << wheel_Func(angleR) << "," << angleR * 180 / M_PI;
+    cout << endl;
     /*
-   cout << "two" << twoWheel * slowWheel;
-   cout << "six" << sixWheel * slowWheel;
-   cout << "ten" << tenWheel * slowWheel;
-   cout << endl;
-   */
     ms.send(1, 2, twoWheel * slowWheel);
     ms.send(2, 2, sixWheel * slowWheel);
     ms.send(3, 2, -tenWheel * slowWheel);
+   */
 
     //----------Emergency----------
     if (Controller.press(SELECT)) {
