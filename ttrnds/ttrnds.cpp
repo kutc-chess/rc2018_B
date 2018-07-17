@@ -21,26 +21,7 @@ using namespace RPDS3;
 using namespace RPMS;
 using namespace RPGY521;
 
-inline double wheel_Func(double rad) {
-  while (rad < 0) {
-    rad += 2 * M_PI;
-  }
-  while (rad >= 2 * M_PI) {
-    rad -= 2 * M_PI;
-  }
-
-  if (0 <= rad && rad < M_PI_6) {
-    return 1;
-  } else if (M_PI_6 <= rad && rad < 5 * M_PI_6) {
-    return (M_PI_2 - rad) * 3 / M_PI;
-  } else if (5 * M_PI_6 <= rad && rad < 7 * M_PI_6) {
-    return -1;
-  } else if (7 * M_PI_6 <= rad && rad < 11 * M_PI_6) {
-    return (rad - 3 * M_PI_2) * 3 / M_PI;
-  } else if (11 * M_PI_6 <= rad && rad < 12 * M_PI_6) {
-    return 1;
-  }
-}
+inline double wheel_Func(double rad);
 
 int main(void) {
   MotorSerial ms;
@@ -56,33 +37,33 @@ int main(void) {
   // Check LED
   constexpr int BCheck = 13;
   gpioSetMode(BCheck, PI_OUTPUT);
-  //  constexpr int MAX = 250;
+  constexpr int Max = 250;
 
   //---------Time----------
   struct timespec now, prev;
   long double delta;
 
+  //----------IncRotary----------
+  constexpr int Range = 500 * 2;
+  rotaryInc in[3] = {rotaryInc(17, 27, true), rotaryInc(22, 10, true),
+                     rotaryInc(9, 11, true)};
+  double constexpr WheelCirc = 101.6 * M_PI;
+
   //----------Guess Point----------
+  constexpr int firstX = 654, firstrY = 1454;
+  constexpr double firstDeg = -5;
+  /*
   // bia UltraSonic
   // Origin Point = Center of Robot Square
   constexpr int measureX0 = 400, measureY0 = 300;
   int nowX = 0, nowY = 0;
-  constexpr int firstX = 654, firstrY = 1454;
-  constexpr double firstDeg = -5;
   constexpr double UltraReg = 1.05;
-
-  //----------IncRotary----------
-  constexpr int RotaryPin[3][2] = {{17, 27}, {22, 10}, {9, 11}};
-  constexpr int Range = 500 * 2;
-  rotaryInc roll[3] = {rotaryInc(17, 27, true), rotaryInc(22, 10, true),
-                       rotaryInc(9, 11, true)};
-  double constexpr Wheel = 101.6 * M_PI;
+  */
 
   //----------Movement----------
   // OutPut
-  int sixWheel, twoWheel, tenWheel;
-  double slowWheel;
-  constexpr int MaxWheel = 255;
+  int out[3];
+  double wheelSlow;
   // Input Robot View
   double angleR, moment;
   // Input Field View
@@ -107,7 +88,7 @@ int main(void) {
   // MainLoop
   UPDATELOOP(Controller,
              !(Controller.button(START) && Controller.button(CROSS))) {
-    //----------Sensar----------
+    //----------Sensor----------
     // GY521
     if (Controller.button(RIGHT) && Controller.button(SQUARE)) {
       gyro.resetYaw(firstDeg);
@@ -142,9 +123,9 @@ int main(void) {
 
     // Nomal
     angleR = angleF - yaw * M_PI / 180;
-    twoWheel = velocityF * cos(angleR - M_PI_3) + moment;
-    sixWheel = velocityF * cos(angleR) + moment;
-    tenWheel = velocityF * cos(angleR + M_PI_3) + moment;
+    out[wheel(two)] = velocityF * cos(angleR - M_PI_3) + moment;
+    out[wheel(six)] = velocityF * cos(angleR) + moment;
+    out[wheel(ten)] = velocityF * cos(angleR + M_PI_3) + moment;
     */
     int stickX = Controller.stick(LEFT_X);
     int stickY = -Controller.stick(LEFT_Y);
@@ -156,40 +137,40 @@ int main(void) {
     angleR = angleF - yaw * M_PI / 180;
     moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T));
 
-    twoWheel = velocityF * wheel_Func(angleR + M_PI_3) + moment;
-    sixWheel = velocityF * -wheel_Func(angleR) + moment;
-    tenWheel = velocityF * wheel_Func(angleR - M_PI_3) + moment;
+    out[wheel(two)] = velocityF * wheel_Func(angleR + M_PI_3) + moment;
+    out[wheel(six)] = velocityF * -wheel_Func(angleR) + moment;
+    out[wheel(ten)] = velocityF * wheel_Func(angleR - M_PI_3) + moment;
 
     // Regulation Max
-    slowWheel = 1.0;
-    if (twoWheel / MaxWheel > slowWheel) {
-      slowWheel = MaxWheel / twoWheel;
+    wheelSlow = 1.0;
+    if (out[wheel(two)] / Max > wheelSlow) {
+      wheelSlow = Max / out[wheel(two)];
     }
-    if (sixWheel / MaxWheel > slowWheel) {
-      slowWheel = MaxWheel / sixWheel;
+    if (out[wheel(six)] / Max > wheelSlow) {
+      wheelSlow = Max / out[wheel(six)];
     }
-    if (tenWheel / MaxWheel > slowWheel) {
-      slowWheel = MaxWheel / tenWheel;
+    if (out[wheel(ten)] / Max > wheelSlow) {
+      wheelSlow = Max / out[wheel(ten)];
     }
 
     //----------Finish----------
     // Move Boost
     if (Controller.button(L1)) {
-      slowWheel *= 0.2;
+      wheelSlow *= 0.2;
     } else if (!Controller.button(R1)) {
-      slowWheel *= 0.5;
+      wheelSlow *= 0.5;
     }
 
     // Output
     /*
-    cout << "two" << (int)(twoWheel * slowWheel);
-    cout << "six" << (int)(sixWheel * slowWheel);
-    cout << "ten" << (int)(tenWheel * slowWheel);
+    cout << "two" << (int)(out[wheel(two)] * wheelSlow);
+    cout << "six" << (int)(out[wheel(six)] * wheelSlow);
+    cout << "ten" << (int)(out[wheel(ten)] * wheelSlow);
     cout << endl;
    */
-    ms.send(1, 2, twoWheel * slowWheel);
-    ms.send(2, 2, sixWheel * slowWheel);
-    ms.send(3, 2, -tenWheel * slowWheel);
+    ms.send(1, 2, out[wheel(two)] * wheelSlow);
+    ms.send(2, 2, out[wheel(six)] * wheelSlow);
+    ms.send(3, 2, -out[wheel(ten)] * wheelSlow);
 
     //----------Emergency----------
     if (Controller.press(SELECT)) {
@@ -207,5 +188,27 @@ int main(void) {
   cout << "Main Finish" << endl;
   ms.send(255, 255, 0);
   gpioWrite(BCheck, 0);
+  return 0;
+}
+
+inline double wheel_Func(double rad) {
+  while (rad < 0) {
+    rad += 2 * M_PI;
+  }
+  while (rad >= 2 * M_PI) {
+    rad -= 2 * M_PI;
+  }
+
+  if (0 <= rad && rad < M_PI_6) {
+    return 1;
+  } else if (M_PI_6 <= rad && rad < 5 * M_PI_6) {
+    return (M_PI_2 - rad) * 3 / M_PI;
+  } else if (5 * M_PI_6 <= rad && rad < 7 * M_PI_6) {
+    return -1;
+  } else if (7 * M_PI_6 <= rad && rad < 11 * M_PI_6) {
+    return (rad - 3 * M_PI_2) * 3 / M_PI;
+  } else if (11 * M_PI_6 <= rad && rad < 12 * M_PI_6) {
+    return 1;
+  }
   return 0;
 }
