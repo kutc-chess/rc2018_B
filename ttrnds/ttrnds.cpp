@@ -14,7 +14,6 @@
 #define ROOT3 (1.7320508)
 #define M_PI_3 (M_PI / 3)
 #define M_PI_6 (M_PI / 6)
-enum wheel { two = 0, six = 1, ten = 2 };
 
 using namespace std;
 using namespace RPDS3;
@@ -45,9 +44,10 @@ int main(void) {
 
   //----------IncRotary----------
   constexpr int Range = 500 * 2;
-  rotaryInc in[3] = {rotaryInc(17, 27, true), rotaryInc(22, 10, true),
-                     rotaryInc(9, 11, true)};
+  rotaryInc rotary[3] = {rotaryInc(17, 27, true), rotaryInc(22, 10, true),
+                         rotaryInc(9, 11, true)};
   double constexpr WheelCirc = 101.6 * M_PI;
+  int wheelIn[3];
 
   //----------Guess Point----------
   constexpr int firstX = 654, firstrY = 1454;
@@ -62,7 +62,8 @@ int main(void) {
 
   //----------Movement----------
   // OutPut
-  int out[3];
+  int wheelOut[3];
+  constexpr double wheelDeg[3] = {M_PI_3, 0, -M_PI_3};
   double wheelSlow;
   // Input Robot View
   double angleR, moment;
@@ -94,6 +95,12 @@ int main(void) {
       gyro.resetYaw(firstDeg);
     }
     yaw = gyro.getYaw();
+
+    // RotaryInc
+    for (int i = 0; i < 3; ++i) {
+      wheelIn[i] = rotary[i].get();
+    }
+
     // time
     prev = now;
     clock_gettime(CLOCK_REALTIME, &now);
@@ -137,20 +144,16 @@ int main(void) {
     angleR = angleF - yaw * M_PI / 180;
     moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T));
 
-    out[wheel(two)] = velocityF * wheel_Func(angleR + M_PI_3) + moment;
-    out[wheel(six)] = velocityF * -wheel_Func(angleR) + moment;
-    out[wheel(ten)] = velocityF * wheel_Func(angleR - M_PI_3) + moment;
+    for (int i = 0; i < 3; ++i) {
+      wheelOut[i] = velocityF * wheel_Func(angleR + wheelDeg[i]) + moment;
+    }
 
     // Regulation Max
     wheelSlow = 1.0;
-    if (out[wheel(two)] / Max > wheelSlow) {
-      wheelSlow = Max / out[wheel(two)];
-    }
-    if (out[wheel(six)] / Max > wheelSlow) {
-      wheelSlow = Max / out[wheel(six)];
-    }
-    if (out[wheel(ten)] / Max > wheelSlow) {
-      wheelSlow = Max / out[wheel(ten)];
+    for (int i = 0; i < 3; ++i) {
+      if (wheelOut[i] / Max > wheelSlow) {
+        wheelSlow = Max / wheelOut[i];
+      }
     }
 
     //----------Finish----------
@@ -163,15 +166,14 @@ int main(void) {
 
     // Output
     /*
-    cout << "two" << (int)(out[wheel(two)] * wheelSlow);
-    cout << "six" << (int)(out[wheel(six)] * wheelSlow);
-    cout << "ten" << (int)(out[wheel(ten)] * wheelSlow);
+    for (int i = 0; i < 3; ++i) {
+      cout << 4 * i + 2 << ":" << (int)(wheelOut[i] * wheelSlow);
+    }
     cout << endl;
-   */
-    ms.send(1, 2, out[wheel(two)] * wheelSlow);
-    ms.send(2, 2, out[wheel(six)] * wheelSlow);
-    ms.send(3, 2, -out[wheel(ten)] * wheelSlow);
-
+    */
+    for (int i = 0; i < 3; ++i) {
+      ms.send(i + 1, 2, wheelOut[i] * wheelSlow);
+    }
     //----------Emergency----------
     if (Controller.press(SELECT)) {
       UPDATELOOP(Controller, !Controller.press(SELECT)) {
