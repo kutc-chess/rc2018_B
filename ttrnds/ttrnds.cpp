@@ -154,7 +154,7 @@ int main(void) {
     yawPrev = yawDelta;
     yawDelta = YawGoal - yaw;
     moment = yawProp * yawDelta + yawInt * yawDelta * delta +
-             yawInt * (yawDelta - yawPrev) / delta;
+             yawDeff * (yawDelta - yawPrev) / delta;
     // moment frome stick
     moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T));
 
