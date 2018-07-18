@@ -1,4 +1,4 @@
-// 立ルンですのプログラム, MainLoop from 77
+//立ルンですのプログラム, MainLoop from 77
 #include "/home/pi/PigpioMS/PigpioMS.hpp"
 #include "/home/pi/RasPiDS3/RasPiDS3.hpp"
 #include "/home/pi/Sensor/GY521/GY521.hpp"
@@ -62,21 +62,22 @@ int main(void) {
 
   //----------Movement----------
   // OutPut
+  constexpr int MaxSpeed = 250;
   int wheelOut[3];
   constexpr double wheelDeg[3] = {M_PI_3, 0, -M_PI_3};
   double wheelSlow;
   // Wheel Speed bia PID with Control Accel
-  // Result: Speed, Goal: Goal, Control; Out(define before)
-  int wheelSpeed[3], wheelGoal[3], wheelDiff[3], wheelPrev[3];
+  // Result: Speed [mm/s], Goal: Goal [mm/s] Control; Out [PWM](define before)
+  int wheelSpeed[3], wheelGoal[3], wheelDelta[3], wheelPrev[3];
   constexpr double wheelProp = 1, wheelInt = 0, wheelDeff = 0;
-  // Input Robot View
+  // Input Robot View, velocityR = velocityF
   double angleR, moment;
   // Input Field View
   double velocityF, angleF = M_PI / 6 - firstDeg / 180 * M_PI;
   // Lock Angle bia PID
-  // Result: yaw, Goal: yawLock, Control: moment
-  double yaw = 0, yawDiff, yawPrev = firstDeg;
-  constexpr double YawLock = firstDeg;
+  // Result: yaw, Goal: yawLock, Control: moment(define before), [mm/s]
+  double yaw, yawDelta, yawPrev;
+  constexpr double YawGoal = firstDeg;
   constexpr double yawProp = 7.5, yawInt = 0, yawDeff = 0;
 
   //----------Calibration----------
@@ -128,8 +129,8 @@ int main(void) {
     }
 
     // Change Field to Robot
-    yawDiff = yaw - yawPrev;
-    moment = yawProp * yawDiff;
+    yawDelta = yaw - yawPrev;
+    moment = yawProp * yawDelta;
     yawPrev = yaw;
 
     // Nomal
@@ -139,6 +140,7 @@ int main(void) {
     out[wheel(ten)] = velocityF * cos(angleR + M_PI_3) + moment;
     */
 
+    // Input
     int stickX = Controller.stick(LEFT_X);
     int stickY = -Controller.stick(LEFT_Y);
     angleF = atan2(stickY, stickX);
@@ -147,26 +149,41 @@ int main(void) {
       velocityF = 250;
     }
     angleR = angleF - yaw * M_PI / 180;
+
+    // moment frome Lock Angle bia PID
+    yawPrev = yawDelta;
+    yawDelta = YawGoal - yaw;
+    moment = yawProp * yawDelta + yawInt * yawDelta * delta +
+             yawInt * (yawDelta - yawPrev) / delta;
+    // moment frome stick
     moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T));
 
-    for (int i = 0; i < 3; ++i) {
-      wheelSpeed[i] = wheelIn[i] / Range * WheelCirc / delta;
-      wheelOut[i] = velocityF * wheel_Func(angleR + wheelDeg[i]) + moment;
-    }
-
-    // Regulation Max
+    // wheelGoal
     wheelSlow = 1.0;
     for (int i = 0; i < 3; ++i) {
-      if (wheelOut[i] > Max) {
-        wheelSlow = Max / wheelOut[i];
+      wheelGoal[i] = velocityF * wheel_Func(angleR + wheelDeg[i]) + moment;
+      if (wheelGoal[i] > MaxSpeed) {
+        wheelSlow = MaxSpeed / wheelGoal[i];
       }
     }
-
-    // Move Boost
     if (Controller.button(L1)) {
       wheelSlow *= 0.2;
     } else if (!Controller.button(R1)) {
       wheelSlow *= 0.5;
+    }
+
+    // wheelOut & PID
+    for (int i = 0; i < 3; ++i) {
+      wheelGoal[i] *= wheelSlow;
+      wheelPrev[i] = wheelDelta[i];
+      wheelSpeed[i] = wheelIn[i] / Range * WheelCirc / delta;
+      wheelDelta[i] = wheelGoal[i] - wheelSpeed[i];
+      wheelOut[i] = wheelProp * wheelDelta[i] +
+                    wheelInt * wheelDelta[i] * delta +
+                    wheelDeff * (wheelDelta[i] - wheelPrev[i]) / delta;
+
+      // bis human
+      wheelOut[i] = wheelGoal[i];
     }
 
     // Output
@@ -177,7 +194,7 @@ int main(void) {
     cout << endl;
     */
     for (int i = 0; i < 3; ++i) {
-      ms.send(i + 1, 2, wheelOut[i] * wheelSlow);
+      ms.send(i + 1, 2, wheelOut[i]);
     }
 
     //----------Emergency----------
