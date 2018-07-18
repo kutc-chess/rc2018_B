@@ -46,8 +46,8 @@ int main(void) {
   constexpr int Range = 500 * 2;
   rotaryInc rotary[3] = {rotaryInc(17, 27, true), rotaryInc(22, 10, true),
                          rotaryInc(9, 11, true)};
-  double constexpr WheelCirc = 101.6 * M_PI;
   int wheelIn[3];
+  double constexpr WheelCirc = 101.6 * M_PI;
 
   //----------Guess Point----------
   constexpr int firstX = 654, firstrY = 1454;
@@ -65,6 +65,10 @@ int main(void) {
   int wheelOut[3];
   constexpr double wheelDeg[3] = {M_PI_3, 0, -M_PI_3};
   double wheelSlow;
+  // Wheel Speed bia PID with Control Accel
+  // Result: Speed, Goal: Goal, Control; Out(define before)
+  int wheelSpeed[3], wheelGoal[3], wheelDiff[3], wheelPrev[3];
+  constexpr double wheelProp = 1, wheelInt = 0, wheelDeff = 0;
   // Input Robot View
   double angleR, moment;
   // Input Field View
@@ -90,6 +94,12 @@ int main(void) {
   UPDATELOOP(Controller,
              !(Controller.button(START) && Controller.button(CROSS))) {
     //----------Sensor----------
+    // time
+    prev = now;
+    clock_gettime(CLOCK_REALTIME, &now);
+    delta = now.tv_sec - prev.tv_sec +
+            (long double)(now.tv_nsec - prev.tv_nsec) / 1000000000;
+
     // GY521
     if (Controller.button(RIGHT) && Controller.button(SQUARE)) {
       gyro.resetYaw(firstDeg);
@@ -100,12 +110,6 @@ int main(void) {
     for (int i = 0; i < 3; ++i) {
       wheelIn[i] = rotary[i].get();
     }
-
-    // time
-    prev = now;
-    clock_gettime(CLOCK_REALTIME, &now);
-    delta = now.tv_sec - prev.tv_sec +
-            (long double)(now.tv_nsec - prev.tv_nsec) / 1000000000;
 
     //----------Movement----------
     /*
@@ -134,6 +138,7 @@ int main(void) {
     out[wheel(six)] = velocityF * cos(angleR) + moment;
     out[wheel(ten)] = velocityF * cos(angleR + M_PI_3) + moment;
     */
+
     int stickX = Controller.stick(LEFT_X);
     int stickY = -Controller.stick(LEFT_Y);
     angleF = atan2(stickY, stickX);
@@ -145,18 +150,18 @@ int main(void) {
     moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T));
 
     for (int i = 0; i < 3; ++i) {
+      wheelSpeed[i] = wheelIn[i] / Range * WheelCirc / delta;
       wheelOut[i] = velocityF * wheel_Func(angleR + wheelDeg[i]) + moment;
     }
 
     // Regulation Max
     wheelSlow = 1.0;
     for (int i = 0; i < 3; ++i) {
-      if (wheelOut[i] / Max > wheelSlow) {
+      if (wheelOut[i] > Max) {
         wheelSlow = Max / wheelOut[i];
       }
     }
 
-    //----------Finish----------
     // Move Boost
     if (Controller.button(L1)) {
       wheelSlow *= 0.2;
@@ -174,6 +179,7 @@ int main(void) {
     for (int i = 0; i < 3; ++i) {
       ms.send(i + 1, 2, wheelOut[i] * wheelSlow);
     }
+
     //----------Emergency----------
     if (Controller.press(SELECT)) {
       UPDATELOOP(Controller, !Controller.press(SELECT)) {
