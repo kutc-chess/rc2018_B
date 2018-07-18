@@ -157,13 +157,18 @@ int main(void) {
              yawDeff * (yawDelta - yawPrev) / delta;
     // moment frome stick
     moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T));
+    if (moment > 250) {
+      moment = 250;
+    } else if (moment < -250) {
+      moment = -250;
+    }
 
     // wheelGoal
     wheelSlow = 1.0;
     for (int i = 0; i < 3; ++i) {
       wheelGoal[i] = velocityF * wheel_Func(angleR + wheelDeg[i]) + moment;
-      if (wheelGoal[i] > MaxSpeed) {
-        wheelSlow = MaxSpeed / wheelGoal[i];
+      if (abs(wheelGoal[i]) > MaxSpeed) {
+        wheelSlow = MaxSpeed / abs(wheelGoal[i]);
       }
     }
     if (Controller.button(L1)) {
@@ -189,7 +194,7 @@ int main(void) {
     // Output
     /*
     for (int i = 0; i < 3; ++i) {
-      cout << 4 * i + 2 << ":" << (int)(wheelOut[i] * wheelSlow);
+      cout << 4 * i + 2 << ":" << (int)wheelOut[i] << ", ";
     }
     cout << endl;
     */
