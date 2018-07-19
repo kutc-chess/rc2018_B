@@ -99,12 +99,7 @@ int main(void) {
              !(Controller.button(START) && Controller.button(CROSS))) {
     //----------Sensor----------
     // time
-    if (Controller.press(CIRCLE) && !flag) {
-      prev = now;
-      flag = true;
-    } else if (Controller.press(CIRCLE) && flag) {
-      flag = false;
-    }
+    prev = now;
     clock_gettime(CLOCK_REALTIME, &now);
     delta = now.tv_sec - prev.tv_sec +
             (long double)(now.tv_nsec - prev.tv_nsec) / 1000000000;
@@ -116,12 +111,6 @@ int main(void) {
     yaw = gyro.getYaw();
 
     // RotaryInc
-    if (flag) {
-      cout << delta << ", " << wheelIn[0] - wheelInPrev[0] << endl;
-      ms.send(1, 2, 250);
-    } else {
-      ms.send(1, 2, 0);
-    }
     for (int i = 0; i < 3; ++i) {
       wheelInPrev[i] = wheelIn[i];
       wheelIn[i] = rotary[i].get();
@@ -147,76 +136,69 @@ int main(void) {
     yawDelta = yaw - yawPrev;
     moment = yawProp * yawDelta;
     yawPrev = yaw;
-
-    // Nomal
-    angleR = angleF - yaw * M_PI / 180;
-    out[wheel(two)] = velocityF * cos(angleR - M_PI_3) + moment;
-    out[wheel(six)] = velocityF * cos(angleR) + moment;
-    out[wheel(ten)] = velocityF * cos(angleR + M_PI_3) + moment;
     */
-    /*
-        // Input
-        int stickX = Controller.stick(LEFT_X);
-        int stickY = -Controller.stick(LEFT_Y);
-        angleF = atan2(stickY, stickX);
-        velocityF = hypot(stickX, stickY) * (fabs(0.58 * cos(2 * angleF)) +
-       1.4);
-        if (velocityF > 250) {
-          velocityF = 250;
-        }
-        angleR = angleF - yaw * M_PI / 180;
 
-        // moment frome Lock Angle bia PID
-        yawPrev = yawDelta;
-        yawDelta = YawGoal - yaw;
-        moment = yawProp * yawDelta + yawInt * yawDelta * delta +
-                 yawDeff * (yawDelta - yawPrev) / delta;
-        // moment frome stick
-        moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T));
-        if (moment > 250) {
-          moment = 250;
-        } else if (moment < -250) {
-          moment = -250;
-        }
+    // Input
+    int stickX = Controller.stick(LEFT_X);
+    int stickY = -Controller.stick(LEFT_Y);
+    angleF = atan2(stickY, stickX);
+    velocityF = hypot(stickX, stickY) * (fabs(0.58 * cos(2 * angleF)) + 1.4);
+    if (velocityF > 250) {
+      velocityF = 250;
+    }
+    angleR = angleF - yaw * M_PI / 180;
 
-        // wheelGoal
-        wheelSlow = 1.0;
-        for (int i = 0; i < 3; ++i) {
-          wheelGoal[i] = velocityF * wheel_Func(angleR + wheelDeg[i]) +
-       moment;
-          if (abs(wheelGoal[i]) > MaxSpeed) {
-            wheelSlow = MaxSpeed / abs(wheelGoal[i]);
-          }
-        }
-        if (Controller.button(L1)) {
-          wheelSlow *= 0.2;
-        } else if (!Controller.button(R1)) {
-          wheelSlow *= 0.5;
-        }
+    // moment frome Lock Angle bia PID
+    yawPrev = yawDelta;
+    yawDelta = YawGoal - yaw;
+    moment = yawProp * yawDelta + yawInt * yawDelta * delta +
+             yawDeff * (yawDelta - yawPrev) / delta;
+    // moment frome stick
+    moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T));
+    if (moment > 250) {
+      moment = 250;
+    } else if (moment < -250) {
+      moment = -250;
+    }
 
-        // wheelOut & PID
-        for (int i = 0; i < 3; ++i) {
-          wheelGoal[i] *= wheelSlow;
-          wheelPrev[i] = wheelDelta[i];
-          wheelSpeed[i] = wheelIn[i] / Range * WheelCirc / delta;
-          wheelDelta[i] = wheelGoal[i] - wheelSpeed[i];
-          wheelOut[i] = wheelProp * wheelDelta[i] +
-                        wheelInt * wheelDelta[i] * delta +
-                        wheelDeff * (wheelDelta[i] - wheelPrev[i]) / delta;
+    // wheelGoal
+    wheelSlow = 1.0;
+    for (int i = 0; i < 3; ++i) {
+      wheelGoal[i] = velocityF * wheel_Func(angleR + wheelDeg[i]) + moment;
+      if (abs(wheelGoal[i]) > MaxSpeed) {
+        wheelSlow = MaxSpeed / abs(wheelGoal[i]);
+      }
+    }
+    if (Controller.button(L1)) {
+      wheelSlow *= 0.2;
+    } else if (!Controller.button(R1)) {
+      wheelSlow *= 0.5;
+    }
 
-          // bis human
-          wheelOut[i] = wheelGoal[i];
-        }
+    // wheelOut & PID
+    for (int i = 0; i < 3; ++i) {
+      wheelGoal[i] *= wheelSlow;
+      wheelPrev[i] = wheelDelta[i];
+      wheelSpeed[i] = wheelIn[i] / Range * WheelCirc / delta;
+      wheelDelta[i] = wheelGoal[i] - wheelSpeed[i];
+      wheelOut[i] = wheelProp * wheelDelta[i] +
+                    wheelInt * wheelDelta[i] * delta +
+                    wheelDeff * (wheelDelta[i] - wheelPrev[i]) / delta;
+
+      // bis human
+      wheelOut[i] = wheelGoal[i];
+    }
 
     // Output
+    /*
     for (int i = 0; i < 3; ++i) {
       cout << 4 * i + 2 << ":" << (int)wheelOut[i] << ", ";
     }
     cout << endl;
+    */
     for (int i = 0; i < 3; ++i) {
       ms.send(i + 1, 2, wheelOut[i]);
     }
-    */
 
     //----------Emergency----------
     if (Controller.press(SELECT)) {
