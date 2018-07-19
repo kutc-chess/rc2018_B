@@ -70,7 +70,7 @@ int main(void) {
   // constexpr int SpeedMin = 1700; // Voltage = 8 [V], PWM = 230
   // constexpr double SpeedRate = 1700; // Voltage = 8 [V], PWM = 230
   int wheelOut[3];
-  constexpr double wheelDeg[3] = {M_PI_3, 0, -M_PI_3};
+  constexpr double wheelDeg[3] = {M_PI_3, -M_PI, -M_PI_3};
   double wheelSlow;
   int wheelSpeed[3], wheelGoal[3], wheelDelta[3], wheelPrev[3];
   /*
