@@ -67,11 +67,13 @@ int main(void) {
   int wheelOut[3];
   constexpr double wheelDeg[3] = {M_PI_3, 0, -M_PI_3};
   double wheelSlow;
+  /*
   // Wheel Speed bia PID with Control Accel
   // Result: Speed [mm/s], Goal: Goal [mm/s] Control; Out [PWM](define before)
   int wheelSpeed[3], wheelGoal[3], wheelDelta[3], wheelPrev[3];
   constexpr double wheelProp = 1, wheelInt = 0, wheelDeff = 0;
   // Input Robot View, velocityR = velocityF
+  */
   double angleR, moment;
   // Input Field View
   double velocityF, angleF = M_PI / 6 - firstDeg / 180 * M_PI;
@@ -175,18 +177,22 @@ int main(void) {
       wheelSlow *= 0.5;
     }
 
+    /*
+    // 2018/7/19 without PID
     // wheelOut & PID
     for (int i = 0; i < 3; ++i) {
       wheelGoal[i] *= wheelSlow;
       wheelPrev[i] = wheelDelta[i];
-      wheelSpeed[i] = wheelIn[i] / Range * WheelCirc / delta;
+      wheelSpeed[i] = (wheelIn[i] - wheelInPrev[i]) / Range * WheelCirc / delta;
       wheelDelta[i] = wheelGoal[i] - wheelSpeed[i];
       wheelOut[i] = wheelProp * wheelDelta[i] +
                     wheelInt * wheelDelta[i] * delta +
                     wheelDeff * (wheelDelta[i] - wheelPrev[i]) / delta;
-
-      // bis human
-      wheelOut[i] = wheelGoal[i];
+    }
+    */
+    // wheelGoal change wheelOut
+    for (int i = 0; i < 3; ++i) {
+      wheelOut[i] = wheelGoal / MaxSpeed * 250;
     }
 
     // Output
