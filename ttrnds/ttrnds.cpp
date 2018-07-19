@@ -44,8 +44,8 @@ int main(void) {
 
   //----------IncRotary----------
   constexpr int Range = 500 * 2;
-  rotaryInc rotary[3] = {rotaryInc(17, 27, true), rotaryInc(22, 10, true),
-                         rotaryInc(9, 11, true)};
+  rotaryInc rotary[3] = {rotaryInc(27, 17, true), rotaryInc(10, 22, true),
+                         rotaryInc(11, 9, true)};
   int wheelIn[3] = {};
   int wheelInPrev[3] = {};
   double constexpr WheelCirc = 101.6 * M_PI;
@@ -102,6 +102,7 @@ int main(void) {
 
   // dummy
   bool flag = false;
+
   // MainLoop
   UPDATELOOP(Controller,
              !(Controller.button(START) && Controller.button(CROSS))) {
@@ -122,6 +123,8 @@ int main(void) {
     for (int i = 0; i < 3; ++i) {
       wheelInPrev[i] = wheelIn[i];
       wheelIn[i] = rotary[i].get();
+      wheelSpeed[i] =
+          (double)(wheelIn[i] - wheelInPrev[i]) / Range * WheelCirc / delta;
     }
 
     //----------Movement----------
