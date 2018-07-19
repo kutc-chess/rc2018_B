@@ -63,7 +63,12 @@ int main(void) {
 
   //----------Movement----------
   // OutPut
-  constexpr int MaxSpeed = 250;
+  constexpr int SpeedMax = 1700;  // Voltage = 16 [V], PWM = 230
+  constexpr int SpeedMin = 0;     // Voltage = 16 [V], PWM = 230
+  constexpr double SpeedRate = 0; // Voltage = 16 [V], PWM = 230
+  // constexpr int SpeedMax = 1700; // Voltage = 8 [V], PWM = 230
+  // constexpr int SpeedMin = 1700; // Voltage = 8 [V], PWM = 230
+  // constexpr double SpeedRate = 1700; // Voltage = 8 [V], PWM = 230
   int wheelOut[3];
   constexpr double wheelDeg[3] = {M_PI_3, 0, -M_PI_3};
   double wheelSlow;
@@ -164,17 +169,27 @@ int main(void) {
     }
 
     // wheelGoal
-    wheelSlow = 1.0;
+    int dummyMax = SpeedMax;
     for (int i = 0; i < 3; ++i) {
       wheelGoal[i] = velocityF * wheel_Func(angleR + wheelDeg[i]) + moment;
-      if (abs(wheelGoal[i]) > MaxSpeed) {
-        wheelSlow = MaxSpeed / abs(wheelGoal[i]);
+      if (abs(wheelGoal[i]) > dummyMax) {
+        dummyMax = abs(wheelGoal[i]);
       }
     }
+    wheelSlow = SpeedMax / (double)dummyMax;
     if (Controller.button(L1)) {
       wheelSlow *= 0.2;
     } else if (!Controller.button(R1)) {
       wheelSlow *= 0.5;
+    }
+
+    for (int i = 0; i < 3; ++i) {
+      wheelGoal[i] *= wheelSlow;
+      if (wheelGoal[i] < SpeedMin) {
+        wheelGoal[i] = 0;
+      } else if (wheelGoal[i] > -SpeedMax) {
+        wheelGoal[i] = 0;
+      }
     }
 
     /*
@@ -183,16 +198,15 @@ int main(void) {
     for (int i = 0; i < 3; ++i) {
       wheelGoal[i] *= wheelSlow;
       wheelPrev[i] = wheelDelta[i];
-      wheelSpeed[i] = (wheelIn[i] - wheelInPrev[i]) / Range * WheelCirc / delta;
-      wheelDelta[i] = wheelGoal[i] - wheelSpeed[i];
-      wheelOut[i] = wheelProp * wheelDelta[i] +
-                    wheelInt * wheelDelta[i] * delta +
-                    wheelDeff * (wheelDelta[i] - wheelPrev[i]) / delta;
+      wheelSpeed[i] = (wheelIn[i] - wheelInPrev[i]) / Range * WheelCirc /
+    delta; wheelDelta[i] = wheelGoal[i] - wheelSpeed[i]; wheelOut[i] =
+    wheelProp * wheelDelta[i] + wheelInt * wheelDelta[i] * delta + wheelDeff *
+    (wheelDelta[i] - wheelPrev[i]) / delta;
     }
     */
     // wheelGoal change wheelOut
     for (int i = 0; i < 3; ++i) {
-      wheelOut[i] = wheelGoal / MaxSpeed * 250;
+      wheelOut[i] = wheelGoal * SpeedRate;
     }
 
     // Output
