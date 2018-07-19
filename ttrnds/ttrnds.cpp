@@ -63,15 +63,16 @@ int main(void) {
 
   //----------Movement----------
   // OutPut
-  constexpr int SpeedMax = 1700;  // Voltage = 16 [V], PWM = 230
-  constexpr int SpeedMin = 0;     // Voltage = 16 [V], PWM = 230
-  constexpr double SpeedRate = 0; // Voltage = 16 [V], PWM = 230
+  constexpr int SpeedMax = 250;     // Voltage = 16 [V], PWM = 230
+  constexpr int SpeedMin = 0;       // Voltage = 16 [V], PWM = 230
+  constexpr double SpeedRate = 1.0; // Voltage = 16 [V], PWM = 230
   // constexpr int SpeedMax = 1700; // Voltage = 8 [V], PWM = 230
   // constexpr int SpeedMin = 1700; // Voltage = 8 [V], PWM = 230
   // constexpr double SpeedRate = 1700; // Voltage = 8 [V], PWM = 230
   int wheelOut[3];
   constexpr double wheelDeg[3] = {M_PI_3, 0, -M_PI_3};
   double wheelSlow;
+  int wheelSpeed[3], wheelGoal[3], wheelDelta[3], wheelPrev[3];
   /*
   // Wheel Speed bia PID with Control Accel
   // Result: Speed [mm/s], Goal: Goal [mm/s] Control; Out [PWM](define before)
@@ -185,9 +186,9 @@ int main(void) {
 
     for (int i = 0; i < 3; ++i) {
       wheelGoal[i] *= wheelSlow;
-      if (wheelGoal[i] < SpeedMin) {
+      if (0 < wheelGoal[i] && wheelGoal[i] < SpeedMin) {
         wheelGoal[i] = 0;
-      } else if (wheelGoal[i] > -SpeedMax) {
+      } else if (0 > wheelGoal[i] && wheelGoal[i] > -SpeedMin) {
         wheelGoal[i] = 0;
       }
     }
@@ -206,7 +207,7 @@ int main(void) {
     */
     // wheelGoal change wheelOut
     for (int i = 0; i < 3; ++i) {
-      wheelOut[i] = wheelGoal * SpeedRate;
+      wheelOut[i] = wheelGoal[i] * SpeedRate;
     }
 
     // Output
