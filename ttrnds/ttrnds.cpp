@@ -39,8 +39,8 @@ int main(void) {
   constexpr int Max = 250;
 
   //---------Time----------
-  struct timespec now, prev;
-  long double delta;
+  struct timespec now, prev, start;
+  long double delta, time;
 
   //----------IncRotary----------
   constexpr int Range = 500 * 2;
@@ -87,7 +87,7 @@ int main(void) {
   // Result: yaw, Goal: yawLock, Control: moment(define before), [mm/s]
   double yaw, yawDelta, yawPrev;
   constexpr double YawGoal = firstDeg;
-  constexpr double yawProp = 7.5, yawInt = 0, yawDeff = 0;
+  constexpr double yawProp = 1, yawInt = 0, yawDeff = 0;
 
   //----------Calibration----------
   UPDATELOOP(Controller,
@@ -99,6 +99,7 @@ int main(void) {
   cout << "Main Start" << endl;
   gpioWrite(BCheck, 1);
   clock_gettime(CLOCK_REALTIME, &prev);
+  start = prev;
 
   // dummy
   bool flag = false;
@@ -159,13 +160,24 @@ int main(void) {
     }
     angleR = angleF - yaw * M_PI / 180;
 
-    // moment frome Lock Angle bia PID
-    yawPrev = yawDelta;
-    yawDelta = YawGoal - yaw;
-    moment = yawProp * yawDelta + yawInt * yawDelta * delta +
-             yawDeff * (yawDelta - yawPrev) / delta;
-    // moment frome stick
     moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T));
+    // moment frome Lock Angle bia PID
+    if (moment == 0) {
+      yawPrev = yawDelta;
+      yawDelta = YawGoal - yaw;
+      if (yawDelta > 180) {
+        yawDelta -= 360;
+      } else if (yawDelta <= -180) {
+        yawDelta += 360;
+      }
+      moment = yawProp * yawDelta + yawInt * yawDelta * delta +
+               yawDeff * (yawDelta - yawPrev) / delta;
+      moment *= -1;
+      time = now.tv_sec - start.tv_sec +
+             (long double)(now.tv_nsec - start.tv_nsec) / 1000000000;
+      cout << time << ", " << yawDelta << endl;
+    }
+    // moment frome stick
     if (moment > 250) {
       moment = 250;
     } else if (moment < -250) {
