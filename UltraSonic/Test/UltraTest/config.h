@@ -17,4 +17,4 @@
 
 #define URECHO 3
 #define URTRIG 9
-#define READPIN A0
+#define SENSORPIN A0

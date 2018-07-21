@@ -37,7 +37,6 @@ void setup() {
   pinMode(URECHO, INPUT);
 }
 
-int sensorMode = 0;
 int sensorValue = 0;
 int dist = 0;
 unsigned long prev_time = millis();
@@ -46,22 +45,20 @@ void loop() {
   if(millis() - prev_time > 100){
     digitalWrite(URTRIG, LOW);
     digitalWrite(URTRIG, HIGH);
-    if(sensorMode = 0){
-      unsigned long lowLevelTime = pulseIn(URECHO, LOW);
-      if(lowLevelTime>=45000){
-        dist = 512;
-      }
-      else{
-        dist = lowLevelTime / 50;
-      }
+    /*
+    unsigned long lowLevelTime = pulseIn(URECHO, LOW, 75000);
+    if(lowLevelTime>=45000){
+      dist = 512;
     }
     else{
-      sensorValue = analogRead(READPIN);
-      if(sensorValue <= 10){
-        dist = 512;
-      }else{
-        dist = sensorValue * 0.718;
-      }
+      dist = lowLevelTime / 50;
+    }
+    */
+    sensorValue = analogRead(SENSORPIN);
+    if(sensorValue <= 10){
+      dist = 512;
+    }else{
+      dist = sensorValue * 0.718;
     }
     prev_time = millis();
   }
