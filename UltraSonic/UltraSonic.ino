@@ -46,7 +46,7 @@ void loop() {
   if(millis() - prev_time > 100){
     digitalWrite(URTRIG, LOW);
     digitalWrite(URTRIG, HIGH);
-    if(sensorMode = 0){
+    if(sensorMode == 0){
       unsigned long lowLevelTime = pulseIn(URECHO, LOW);
       if(lowLevelTime>=45000){
         dist = 512;
