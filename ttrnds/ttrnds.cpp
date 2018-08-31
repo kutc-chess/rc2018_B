@@ -120,15 +120,6 @@ int main(void) {
           (double)(wheelIn[i] - wheelInPrev[i]) / Range * WheelCirc / delta;
     }
 
-    if (Controller.press(CIRCLE)) {
-      ms.send(1, 31, waitHD);
-    } else if (Controller.press(CROSS)) {
-      ms.send(1, 31, waitYK);
-    }
-    if (Controller.press(TRIANGLE)) {
-      ms.send(2, 31, waitMT);
-    }
-
     //----------Movement----------
     // Input Field View
     if (nowY > 345) {
@@ -172,8 +163,6 @@ int main(void) {
       moment = yawProp * yawDelta + yawInt * yawDelta * delta +
                yawDeff * (yawDelta - yawPrev) / delta;
       moment *= -1;
-      // time = now.tv_sec - start.tv_sec +
-      //(long double)(now.tv_nsec - start.tv_nsec) / 1000000000;
     }
     // moment frome stick
     if (moment > 250) {
@@ -239,13 +228,14 @@ int main(void) {
           // FinishSequence
           ms.send(255, 255, 0);
           gpioWrite(BCheck, 0);
+          cout << "Main Finish" << endl;
           return -1;
         }
       }
     }
   }
   cout << "Main Finish" << endl;
-  // ms.send(255, 255, 0);
+  ms.send(255, 255, 0);
   gpioWrite(BCheck, 0);
   return 0;
 }
