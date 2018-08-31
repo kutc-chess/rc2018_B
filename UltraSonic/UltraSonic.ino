@@ -37,7 +37,7 @@ void setup() {
   pinMode(URECHO, INPUT);
 }
 
-int sensorMode = 0;
+int sensorMode = 1;
 int sensorValue = 0;
 int dist = 0;
 unsigned long prev_time = millis();
