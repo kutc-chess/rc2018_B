@@ -6,5 +6,13 @@ ARRCのMDD(Arduino)のプログラム()に超音波センサ読み取り機能�
 * 読み取りモードはsensorMode=0 の時、Pulseモード、それ以外の時、PWMモード
 * cmd=20 の返り値が超音波センサが測定した距離(cm)となる
 
+## ピン配置
+* Arduino -> URM V4.0
+* Vcc -> Pin 1 Vcc
+* GND -> Pin 2 GND
+* Pin 9 -> Pin 6 COMP/TRIG
+* Pin 3 -> Pin 4 ECHO (If you want to read by Pulse.)
+* Pin A0 -> Pin 7 DAC (If you want to read by PWM.)
+
 ## 参考文献
 * [サンプルプログラム](https://www.dfrobot.com/wiki/index.php/URM37_V4.0_Ultrasonic_Sensor_(SKU:SEN0001))
