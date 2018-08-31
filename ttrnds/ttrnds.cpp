@@ -1,4 +1,4 @@
-//立ルンですのプログラム, MainLoop from 77
+//立ルンですのプログラム, MainLoop from 103
 #include "/home/pi/PigpioMS/PigpioMS.hpp"
 #include "/home/pi/RasPiDS3/RasPiDS3.hpp"
 #include "/home/pi/Sensor/GY521/GY521.hpp"
@@ -23,8 +23,9 @@ using namespace RPGY521;
 inline double wheel_Func(double rad);
 
 int main(void) {
-  MotorSerial ms;
   DualShock3 Controller;
+  gpioInitialise();
+  MotorSerial ms;
   // MDD通信セットアップ
   try {
     ms.init();
@@ -36,7 +37,7 @@ int main(void) {
   // Check LED
   constexpr int BCheck = 13;
   gpioSetMode(BCheck, PI_OUTPUT);
-  constexpr int Max = 250;
+  constexpr int Max = 240;
 
   //---------Time----------
   struct timespec now, prev, start;
@@ -53,13 +54,11 @@ int main(void) {
   //----------Guess Point----------
   constexpr int firstX = 654, firstrY = 1454;
   constexpr double firstDeg = -5;
-  /*
   // bia UltraSonic
-  // Origin Point = Center of Robot Square
+  // Origin Point = Centerof Robot Square
   constexpr int measureX0 = 400, measureY0 = 300;
   int nowX = 0, nowY = 0;
   constexpr double UltraReg = 1.05;
-  */
 
   //----------Movement----------
   // OutPut
@@ -73,13 +72,10 @@ int main(void) {
   constexpr double wheelDeg[3] = {M_PI_3, -M_PI, -M_PI_3};
   double wheelSlow;
   int wheelSpeed[3], wheelGoal[3], wheelDelta[3], wheelPrev[3];
-  /*
-  // Wheel Speed bia PID with Control Accel
-  // Result: Speed [mm/s], Goal: Goal [mm/s] Control; Out [PWM](define before)
-  int wheelSpeed[3], wheelGoal[3], wheelDelta[3], wheelPrev[3];
+  // WheelSpeed bia PID with Control Accel
+  // Result:Speed[mm / s], Goal : Goal[mm / s] Control; Out[PWM](define before)
   constexpr double wheelProp = 1, wheelInt = 0, wheelDeff = 0;
   // Input Robot View, velocityR = velocityF
-  */
   double angleR, moment;
   // Input Field View
   double velocityF, angleF = M_PI / 6 - firstDeg / 180 * M_PI;
@@ -87,8 +83,7 @@ int main(void) {
   // Result: yaw, Goal: yawLock, Control: moment(define before), [mm/s]
   double yaw, yawDelta, yawPrev;
   constexpr double YawGoal = firstDeg;
-  constexpr double yawProp = 1, yawInt = 0, yawDeff = 0;
-
+  constexpr double yawProp = 22.8, yawInt = 62.4, yawDeff = 2.0;
   //----------Calibration----------
   UPDATELOOP(Controller,
              !(Controller.button(RIGHT) && Controller.button(SQUARE))) {}
@@ -100,9 +95,6 @@ int main(void) {
   gpioWrite(BCheck, 1);
   clock_gettime(CLOCK_REALTIME, &prev);
   start = prev;
-
-  // dummy
-  bool flag = false;
 
   // MainLoop
   UPDATELOOP(Controller,
@@ -119,7 +111,7 @@ int main(void) {
       gyro.resetYaw(firstDeg);
     }
     yaw = gyro.getYaw();
-
+    cout << yaw << endl;
     // RotaryInc
     for (int i = 0; i < 3; ++i) {
       wheelInPrev[i] = wheelIn[i];
@@ -129,7 +121,6 @@ int main(void) {
     }
 
     //----------Movement----------
-    /*
     // Input Field View
     if (nowY > 345) {
       velocityF = 50 * 2 / ROOT3;
@@ -148,7 +139,6 @@ int main(void) {
     yawDelta = yaw - yawPrev;
     moment = yawProp * yawDelta;
     yawPrev = yaw;
-    */
 
     // Input
     int stickX = Controller.stick(LEFT_X);
@@ -173,9 +163,6 @@ int main(void) {
       moment = yawProp * yawDelta + yawInt * yawDelta * delta +
                yawDeff * (yawDelta - yawPrev) / delta;
       moment *= -1;
-      time = now.tv_sec - start.tv_sec +
-             (long double)(now.tv_nsec - start.tv_nsec) / 1000000000;
-      cout << time << ", " << yawDelta << endl;
     }
     // moment frome stick
     if (moment > 250) {
@@ -208,30 +195,27 @@ int main(void) {
       }
     }
 
-    /*
     // 2018/7/19 without PID
     // wheelOut & PID
     for (int i = 0; i < 3; ++i) {
       wheelGoal[i] *= wheelSlow;
       wheelPrev[i] = wheelDelta[i];
-      wheelSpeed[i] = (wheelIn[i] - wheelInPrev[i]) / Range * WheelCirc /
-    delta; wheelDelta[i] = wheelGoal[i] - wheelSpeed[i]; wheelOut[i] =
-    wheelProp * wheelDelta[i] + wheelInt * wheelDelta[i] * delta + wheelDeff *
-    (wheelDelta[i] - wheelPrev[i]) / delta;
+      wheelSpeed[i] = (wheelIn[i] - wheelInPrev[i]) / Range * WheelCirc / delta;
+      wheelDelta[i] = wheelGoal[i] - wheelSpeed[i];
+      wheelOut[i] = wheelProp * wheelDelta[i] +
+                    wheelInt * wheelDelta[i] * delta +
+                    wheelDeff * (wheelDelta[i] - wheelPrev[i]) / delta;
     }
-    */
     // wheelGoal change wheelOut
     for (int i = 0; i < 3; ++i) {
       wheelOut[i] = wheelGoal[i] * SpeedRate;
     }
 
     // Output
-    /*
     for (int i = 0; i < 3; ++i) {
-      cout << 4 * i + 2 << ":" << (int)wheelOut[i] << ", ";
+      cout << 4 * i + 2 << ":" << (int)wheelOut[i] << endl;
     }
-    cout << endl;
-    */
+
     for (int i = 0; i < 3; ++i) {
       ms.send(i + 1, 2, wheelOut[i]);
     }
@@ -244,6 +228,7 @@ int main(void) {
           // FinishSequence
           ms.send(255, 255, 0);
           gpioWrite(BCheck, 0);
+          cout << "Main Finish" << endl;
           return -1;
         }
       }
