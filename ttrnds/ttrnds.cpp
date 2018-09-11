@@ -45,25 +45,28 @@ int main(void) {
 
   //----------IncRotary----------
   constexpr int Range = 500 * 2;
-  rotaryInc rotary[3] = {rotaryInc(27, 17, true), rotaryInc(10, 22, true),
-                         rotaryInc(11, 9, true)};
-  int wheelIn[3] = {};
-  int wheelInPrev[3] = {};
+  rotaryInc rotary[3] = {rotaryInc(17, 27, true), rotaryInc(22, 10, true),
+                         rotaryInc(9, 11, true)};
+  int wheelIn[3] = {0, 0, 0};
+  int wheelInPrev[3] = {0, 0, 0};
   double constexpr WheelCirc = 101.6 * M_PI;
 
   //----------Guess Point----------
-  constexpr int firstX = 654, firstrY = 1454;
-  constexpr double firstDeg = -5;
+  constexpr int firstX = 710, firstY = 1630;
+  constexpr double firstDeg = 0;
+  //Goal
+  constexpr int goalX = 710, goalY = 2630;
   // bia UltraSonic
   // Origin Point = Centerof Robot Square
   constexpr int measureX0 = 400, measureY0 = 300;
-  int nowX = 0, nowY = 0;
+  double nowPoint[3] = {0, 0, 0};
   constexpr double UltraReg = 1.05;
+  constexpr double MatrixPoint[3][3] = {{-1.0 / 3.0, 2.0 / 3.0, -1.0 / 3.0}, {1.0 / ROOT3, 0, -1.0 / ROOT3}, {1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0}};
 
   //----------Movement----------
   // OutPut
-  constexpr int SpeedMax = 250;     // Voltage = 16 [V], PWM = 230
-  constexpr int SpeedMin = 0;       // Voltage = 16 [V], PWM = 230
+  constexpr int SpeedMax = 245;     // Voltage = 16 [V], PWM = 230
+  constexpr int SpeedMin = 25;       // Voltage = 16 [V], PWM = 230
   constexpr double SpeedRate = 1.0; // Voltage = 16 [V], PWM = 230
   // constexpr int SpeedMax = 1700; // Voltage = 8 [V], PWM = 230
   // constexpr int SpeedMin = 1700; // Voltage = 8 [V], PWM = 230
@@ -83,7 +86,8 @@ int main(void) {
   // Result: yaw, Goal: yawLock, Control: moment(define before), [mm/s]
   double yaw, yawDelta, yawPrev;
   constexpr double YawGoal = firstDeg;
-  constexpr double yawProp = 22.8, yawInt = 62.4, yawDeff = 2.0;
+  constexpr double yawProp = 10, yawInt = 0, yawDeff = 0;
+  //constexpr double yawProp = 22.8, yawInt = 62.4, yawDeff = 2.0;
   //----------Calibration----------
   UPDATELOOP(Controller,
              !(Controller.button(RIGHT) && Controller.button(SQUARE))) {}
@@ -111,7 +115,7 @@ int main(void) {
       gyro.resetYaw(firstDeg);
     }
     yaw = gyro.getYaw();
-    cout << yaw << endl;
+
     // RotaryInc
     for (int i = 0; i < 3; ++i) {
       wheelInPrev[i] = wheelIn[i];
@@ -121,18 +125,21 @@ int main(void) {
     }
 
     //----------Movement----------
+    //Guess Field
+    for(int i = 0; i < 3; ++i){
+      for(int j = 0; j < 3; ++j){
+        nowPoint[i] += MatrixPoint[i][j] * (double)(wheelIn[j] - wheelInPrev[j]) * WheelCirc / (double)Range;
+      }
+    //  cout << nowPoint[i] << ", ";
+    }
+    //cout << endl;
+
     // Input Field View
-    if (nowY > 345) {
-      velocityF = 50 * 2 / ROOT3;
-      angleF = M_PI / 6 - firstDeg / 180 * M_PI;
-    } else if (!(nowX - 2560 < 5 && nowX - 2560 > -5) &&
-               !(nowY - 10 < 5 && nowX - 10 > -5)) {
-      double velocityFX = (2560 - nowX) * (50) / 360;
-      double velocityFY = (nowY - 10) * 10 / 340;
-      velocityF = hypot(velocityFX, velocityFY) / ROOT2 * 2 / ROOT3;
-      angleF = atan2(velocityFY, velocityFX);
-    } else {
-      velocityF = 0;
+    velocityF = hypot(goalY - nowPoint[1] - firstY, goalX - nowPoint[0] - firstX) ;
+    angleF = atan2(goalY - nowPoint[1] - firstY, goalX - nowPoint[0] - firstX);
+    cout << velocityF << ", " << angleF << endl;
+    if(velocityF > 100){
+      velocityF = 100;
     }
 
     // Change Field to Robot
@@ -143,32 +150,30 @@ int main(void) {
     // Input
     int stickX = Controller.stick(LEFT_X);
     int stickY = -Controller.stick(LEFT_Y);
-    angleF = atan2(stickY, stickX);
-    velocityF = hypot(stickX, stickY) * (fabs(0.58 * cos(2 * angleF)) + 1.4);
+    //angleF = atan2(stickY, stickX);
+    //velocityF = hypot(stickX, stickY) * (fabs(0.58 * cos(2 * angleF)) + 1.4);
     if (velocityF > 250) {
       velocityF = 250;
     }
     angleR = angleF - yaw * M_PI / 180;
 
-    moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T));
+    //moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T)) * 0.5;
     // moment frome Lock Angle bia PID
-    if (moment == 0) {
-      yawPrev = yawDelta;
-      yawDelta = YawGoal - yaw;
-      if (yawDelta > 180) {
-        yawDelta -= 360;
-      } else if (yawDelta <= -180) {
-        yawDelta += 360;
-      }
-      moment = yawProp * yawDelta + yawInt * yawDelta * delta +
-               yawDeff * (yawDelta - yawPrev) / delta;
-      moment *= -1;
+    yawPrev = yawDelta;
+    yawDelta = YawGoal - yaw;
+    if (yawDelta > 180) {
+      yawDelta -= 360;
+    } else if (yawDelta <= -180) {
+      yawDelta += 360;
     }
-    // moment frome stick
-    if (moment > 250) {
-      moment = 250;
-    } else if (moment < -250) {
-      moment = -250;
+    moment = yawProp * yawDelta + yawInt * yawDelta * delta +
+            yawDeff * (yawDelta - yawPrev) / delta;
+    moment *= -1;
+    // moment from stick
+    if (moment > 125) {
+      moment = 125;
+    } else if (moment < -125) {
+      moment = -125;
     }
 
     // wheelGoal
@@ -197,6 +202,7 @@ int main(void) {
 
     // 2018/7/19 without PID
     // wheelOut & PID
+    /*
     for (int i = 0; i < 3; ++i) {
       wheelGoal[i] *= wheelSlow;
       wheelPrev[i] = wheelDelta[i];
@@ -206,15 +212,18 @@ int main(void) {
                     wheelInt * wheelDelta[i] * delta +
                     wheelDeff * (wheelDelta[i] - wheelPrev[i]) / delta;
     }
+    */
     // wheelGoal change wheelOut
     for (int i = 0; i < 3; ++i) {
       wheelOut[i] = wheelGoal[i] * SpeedRate;
     }
 
+    /*
     // Output
     for (int i = 0; i < 3; ++i) {
       cout << 4 * i + 2 << ":" << (int)wheelOut[i] << endl;
     }
+    */
 
     for (int i = 0; i < 3; ++i) {
       ms.send(i + 1, 2, wheelOut[i]);
