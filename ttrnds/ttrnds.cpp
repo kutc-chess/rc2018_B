@@ -55,7 +55,7 @@ int main(void) {
   constexpr int firstX = 710, firstY = 1630;
   constexpr double firstDeg = 0;
   //Goal
-  constexpr int goalX = 710, goalY = 2630;
+  constexpr int goalX = 1210, goalY = 3630;
   // bia UltraSonic
   // Origin Point = Centerof Robot Square
   constexpr int measureX0 = 400, measureY0 = 300;
@@ -130,16 +130,16 @@ int main(void) {
       for(int j = 0; j < 3; ++j){
         nowPoint[i] += MatrixPoint[i][j] * (double)(wheelIn[j] - wheelInPrev[j]) * WheelCirc / (double)Range;
       }
-    //  cout << nowPoint[i] << ", ";
+      cout << nowPoint[i] << ", ";
     }
-    //cout << endl;
+    cout << endl;
 
     // Input Field View
-    velocityF = hypot(goalY - nowPoint[1] - firstY, goalX - nowPoint[0] - firstX) ;
+    velocityF = hypot(goalY - nowPoint[1] - firstY, goalX - nowPoint[0] - firstX) * 10;
     angleF = atan2(goalY - nowPoint[1] - firstY, goalX - nowPoint[0] - firstX);
     cout << velocityF << ", " << angleF << endl;
-    if(velocityF > 100){
-      velocityF = 100;
+    if(velocityF > 240){
+      velocityF = 240;
     }
 
     // Change Field to Robot
@@ -150,25 +150,27 @@ int main(void) {
     // Input
     int stickX = Controller.stick(LEFT_X);
     int stickY = -Controller.stick(LEFT_Y);
-    //angleF = atan2(stickY, stickX);
-    //velocityF = hypot(stickX, stickY) * (fabs(0.58 * cos(2 * angleF)) + 1.4);
+    // angleF = atan2(stickY, stickX);
+    // velocityF = hypot(stickX, stickY) * (fabs(0.58 * cos(2 * angleF)) + 1.4);
     if (velocityF > 250) {
       velocityF = 250;
     }
     angleR = angleF - yaw * M_PI / 180;
 
-    //moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T)) * 0.5;
+    // moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T)) * 0.5;
     // moment frome Lock Angle bia PID
-    yawPrev = yawDelta;
-    yawDelta = YawGoal - yaw;
-    if (yawDelta > 180) {
-      yawDelta -= 360;
-    } else if (yawDelta <= -180) {
-      yawDelta += 360;
-    }
-    moment = yawProp * yawDelta + yawInt * yawDelta * delta +
-            yawDeff * (yawDelta - yawPrev) / delta;
-    moment *= -1;
+    // if(moment == 0){
+      yawPrev = yawDelta;
+      yawDelta = YawGoal - yaw;
+      if (yawDelta > 180) {
+        yawDelta -= 360;
+      } else if (yawDelta <= -180) {
+        yawDelta += 360;
+      }
+      moment = yawProp * yawDelta + yawInt * yawDelta * delta +
+              yawDeff * (yawDelta - yawPrev) / delta;
+      moment *= -1;
+    // }
     // moment from stick
     if (moment > 125) {
       moment = 125;
