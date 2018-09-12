@@ -92,8 +92,7 @@ int main(void) {
   UPDATELOOP(Controller,
              !(Controller.button(RIGHT) && Controller.button(SQUARE))) {}
   GY521 gyro;
-  gyro.start();
-  gyro.resetYaw(firstDeg);
+  gyro.start(firstDeg);
 
   cout << "Main Start" << endl;
   gpioWrite(BCheck, 1);
@@ -111,11 +110,12 @@ int main(void) {
             (long double)(now.tv_nsec - prev.tv_nsec) / 1000000000;
 
     // GY521
+    gyro.updata();
     if (Controller.button(RIGHT) && Controller.button(SQUARE)) {
       gyro.resetYaw(firstDeg);
     }
-    yaw = gyro.getYaw();
-
+    yaw = gyro.yaw;
+    
     // RotaryInc
     for (int i = 0; i < 3; ++i) {
       wheelInPrev[i] = wheelIn[i];
