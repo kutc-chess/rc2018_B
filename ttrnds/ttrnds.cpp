@@ -52,20 +52,24 @@ int main(void) {
 
   //----------Guess Point----------
   // Origin Point = Centerof Robot Square
-  constexpr int firstX = 710, firstY = 1630;
+  constexpr int firstX = 0, firstY = 0;
   constexpr double firstDeg = 0;
-  double nowPoint[3] = {0, 0, 0};
+  double nowPoint[3] = {firstX, firstY, 0};
+  double diffXY[2] = {}, diffV, diffR;
   constexpr double MatrixPoint[3][3] = {{-1.0 / 3.0, 2.0 / 3.0, -1.0 / 3.0}, {1.0 / ROOT3, 0, -1.0 / ROOT3}, {1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0}};
   double constexpr WheelCirc = 101.6 * M_PI;
+  constexpr int RobotR = 835;
+  double wheelSlip = 1.0;
   
   // bia UltraSonic
-  // A
   // constexpr int measureX0 = 400, measureY0 = 300;
   // constexpr double UltraReg = 1.05;
  
   //----------Plan Root----------
   //Goal
-  constexpr int goalX = 1210, goalY = 3630;
+  int goalX = 0, goalY = 0;
+  int phase = 0;
+  constexpr int GoalPoint[4][2] = {{0, 0}, {0, 1000}, {1000, 1000}, {1000, 0}};
   // bia Field View, also yawGoal
   double velocityF, angleF;
 
@@ -105,6 +109,12 @@ int main(void) {
   UPDATELOOP(Controller,
              !(Controller.button(START) && Controller.button(CROSS))) {
     //----------Sensor----------
+    // Reset
+    if (Controller.button(RIGHT) && Controller.button(SQUARE)) {
+      gyro.resetYaw(firstDeg);
+      nowPoint[0] = firstX;
+      nowPoint[1] = firstY;
+    }
     // time
     prev = now;
     clock_gettime(CLOCK_REALTIME, &now);
@@ -114,9 +124,6 @@ int main(void) {
 
     // GY521
     gyro.updata();
-    if (Controller.button(RIGHT) && Controller.button(SQUARE)) {
-      gyro.resetYaw(firstDeg);
-    }
     yaw = gyro.yaw;
     
     // RotaryInc
@@ -128,28 +135,45 @@ int main(void) {
     }
 
     //-----------Guess Field----------
+    /*
+    for(int i = 0; i < 3; ++i){
+      nowPoint[2] += MatrixPoint[2][i] * (double)(wheelIn[i] - wheelInPrev[i]) * WheelCirc / (double)Range;
+    }
+    cout << nowPoint[2] * 180 / M_PI / 740 << endl;
+    */
+
+    diffXY[0] = diffXY[1] = 0;
     for(int i = 0; i < 2; ++i){
       for(int j = 0; j < 3; ++j){
-        nowPoint[i] += MatrixPoint[i][j] * (double)(wheelIn[j] - wheelInPrev[j]) * WheelCirc / (double)Range;
+        diffXY[i] += MatrixPoint[i][j] * (double)(wheelIn[j] - wheelInPrev[j]) * WheelCirc / (double)Range;
       }
-      cout << nowPoint[i] << ", ";
     }
-    cout << gyro.diffYaw << endl;
+    diffV = hypot(diffXY[0], diffXY[1]);
+    diffR = atan2(diffXY[1], diffXY[0]);
+    nowPoint[0] += diffV * cos(diffR + yaw * M_PI / 180);
+    nowPoint[1] += diffV * sin(diffR + yaw * M_PI / 180);
+    cout << nowPoint[0] << ", " << nowPoint[1]<< ", " << yaw << endl;
 
     //----------Plan Root----------
-    velocityF = hypot(goalY - nowPoint[1] - firstY, goalX - nowPoint[0] - firstX);
-    angleF = atan2(goalY - nowPoint[1] - firstY, goalX - nowPoint[0] - firstX);
-    yawGoal = firstDeg;
+    velocityF = hypot(goalY - nowPoint[1], goalX - nowPoint[0]);
+    angleF = atan2(goalY - nowPoint[1], goalX - nowPoint[0]);
+    //yawGoal = firstDeg;
+    if(Controller.press(CIRCLE)){
+      phase = (phase + 1) % 4;
+      yawGoal = -90 * phase;
+      goalX = GoalPoint[phase][0];
+      goalY = GoalPoint[phase][1];      
+    }
 
     //----------Movement----------
-    // Input
     /*
+    // Input
     int stickX = Controller.stick(LEFT_X);
     int stickY = -Controller.stick(LEFT_Y);
     angleF = atan2(stickY, stickX);
-    velocityR = hypot(stickX, stickY) * (fabs(0.58 * cos(2 * angleF)) + 1.4);
+    velocityF = hypot(stickX, stickY) * (fabs(0.58 * cos(2 * angleF)) + 1.4);
     */
-    velocityR = velocityF;
+    velocityR = velocityF * 5;
     if(velocityR > SpeedMax){
       velocityR = SpeedMax;
     }
@@ -159,7 +183,7 @@ int main(void) {
     moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T)) * 0.5;
     if(moment == 0){
       yawPrev = yawDelta;
-      yawDelta = YawGoal - yaw;
+      yawDelta = yawGoal - yaw;
       if (yawDelta > 180) {
         yawDelta -= 360;
       } else if (yawDelta <= -180) {
@@ -171,7 +195,6 @@ int main(void) {
     }
     */
     // moment frome Lock Angle bia PID
-    // if(moment == 0){
     yawPrev = yawDelta;
     yawDelta = yawGoal - yaw;
     if (yawDelta > 180) {
@@ -182,7 +205,7 @@ int main(void) {
     moment = yawProp * yawDelta + yawInt * yawDelta * delta +
             yawDeff * (yawDelta - yawPrev) / delta;
     moment *= -1;
-    // }
+
     if (moment > 125) {
       moment = 125;
     } else if (moment < -125) {
