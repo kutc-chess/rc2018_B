@@ -52,14 +52,12 @@ int main(void) {
 
   //----------Guess Point----------
   // Origin Point = Centerof Robot Square
-  constexpr int firstX = 0, firstY = 0;
+  constexpr int firstX = 740, firstY = 1520 + 89;
   constexpr double firstDeg = 0;
   double nowPoint[3] = {firstX, firstY, 0};
   double diffXY[2] = {}, diffV, diffR;
   constexpr double MatrixPoint[3][3] = {{-1.0 / 3.0, 2.0 / 3.0, -1.0 / 3.0}, {1.0 / ROOT3, 0, -1.0 / ROOT3}, {1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0}};
   double constexpr WheelCirc = 101.6 * M_PI;
-  constexpr int RobotR = 835;
-  double wheelSlip = 1.0;
   
   // bia UltraSonic
   // constexpr int measureX0 = 400, measureY0 = 300;
@@ -67,9 +65,9 @@ int main(void) {
  
   //----------Plan Root----------
   //Goal
-  int goalX = 0, goalY = 0;
-  int phase = 0;
-  constexpr int GoalPoint[4][2] = {{0, 0}, {0, 1000}, {1000, 1000}, {1000, 0}};
+  constexpr int TwoTableX = 3000, TwoTableY = 3500, TwoTableR = 1000, TwoTableAngle = 20;
+  int twoTableDeg = 0;
+  int goalX = TwoTableX + TwoTableR * sin(twoTableDeg), goalY = TwoTableY - TwoTableR * cos(twoTableDeg);
   // bia Field View, also yawGoal
   double velocityF, angleF;
 
@@ -91,14 +89,14 @@ int main(void) {
   // Lock Angle bia PID
   // Result: yaw, Goal: yawLock, Control: moment(define before), [mm/s]
   double yaw, yawDelta, yawPrev;
-  double yawGoal;
+  double yawGoal = firstDeg;
   constexpr double yawProp = 10, yawInt = 0, yawDeff = 0;
   //constexpr double yawProp = 22.8, yawInt = 62.4, yawDeff = 2.0;
 
   //----------Calibration----------
   UPDATELOOP(Controller,
              !(Controller.button(RIGHT) && Controller.button(SQUARE))) {}
-  GY521 gyro;
+  GY521 gyro(0x68, 2, 1000, 1.0);
   gyro.start(firstDeg);
 
   cout << "Main Start" << endl;
@@ -114,6 +112,7 @@ int main(void) {
       gyro.resetYaw(firstDeg);
       nowPoint[0] = firstX;
       nowPoint[1] = firstY;
+      twoTableDeg = 0;
     }
     // time
     prev = now;
@@ -135,13 +134,6 @@ int main(void) {
     }
 
     //-----------Guess Field----------
-    /*
-    for(int i = 0; i < 3; ++i){
-      nowPoint[2] += MatrixPoint[2][i] * (double)(wheelIn[i] - wheelInPrev[i]) * WheelCirc / (double)Range;
-    }
-    cout << nowPoint[2] * 180 / M_PI / 740 << endl;
-    */
-
     diffXY[0] = diffXY[1] = 0;
     for(int i = 0; i < 2; ++i){
       for(int j = 0; j < 3; ++j){
@@ -155,19 +147,19 @@ int main(void) {
     cout << nowPoint[0] << ", " << nowPoint[1]<< ", " << yaw << endl;
 
     //----------Plan Root----------
+    if(Controller.press(CIRCLE)){
+      twoTableDeg = (twoTableDeg + TwoTableAngle) % 360;
+    }
+    goalX = TwoTableX + TwoTableR * sin(yawGoal);
+    goalY = TwoTableY - TwoTableR * cos(yawGoal);
+
     velocityF = hypot(goalY - nowPoint[1], goalX - nowPoint[0]);
     angleF = atan2(goalY - nowPoint[1], goalX - nowPoint[0]);
-    //yawGoal = firstDeg;
-    if(Controller.press(CIRCLE)){
-      phase = (phase + 1) % 4;
-      yawGoal = -90 * phase;
-      goalX = GoalPoint[phase][0];
-      goalY = GoalPoint[phase][1];      
-    }
+    yawGoal = twoTableDeg;
 
     //----------Movement----------
-    /*
     // Input
+    /*
     int stickX = Controller.stick(LEFT_X);
     int stickY = -Controller.stick(LEFT_Y);
     angleF = atan2(stickY, stickX);
@@ -179,7 +171,6 @@ int main(void) {
     }
     angleR = angleF - yaw * M_PI / 180;
 
-    /*
     moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T)) * 0.5;
     if(moment == 0){
       yawPrev = yawDelta;
@@ -193,7 +184,7 @@ int main(void) {
               yawDeff * (yawDelta - yawPrev) / delta;
       moment *= -1;
     }
-    */
+    /*
     // moment frome Lock Angle bia PID
     yawPrev = yawDelta;
     yawDelta = yawGoal - yaw;
@@ -205,6 +196,7 @@ int main(void) {
     moment = yawProp * yawDelta + yawInt * yawDelta * delta +
             yawDeff * (yawDelta - yawPrev) / delta;
     moment *= -1;
+    */
 
     if (moment > 125) {
       moment = 125;
