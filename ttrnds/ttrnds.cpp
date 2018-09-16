@@ -37,7 +37,6 @@ int main(void) {
   // Check LED
   constexpr int BCheck = 13;
   gpioSetMode(BCheck, PI_OUTPUT);
-  constexpr int Max = 240;
 
   //---------Time----------
   struct timespec now, prev;
@@ -45,8 +44,7 @@ int main(void) {
 
   //----------IncRotary----------
   constexpr int Range = 500 * 2;
-  rotaryInc rotary[3] = {rotaryInc(10, 22, true), rotaryInc(11, 9, true),
-                         rotaryInc(27, 17, true)};
+  rotaryInc rotary[3] = {rotaryInc(11, 9, true), rotaryInc(27, 17, true), rotaryInc(10, 22, true)};
   int wheelIn[3] = {0, 0, 0};
   int wheelInPrev[3] = {0, 0, 0};
 
@@ -74,9 +72,9 @@ int main(void) {
   //----------Movement----------
   // OutPut
   constexpr int SpeedMax = 240;
-  constexpr int SpeedMin = 25; 
+  constexpr int SpeedMin = 7; 
   int wheelOut[3];
-  constexpr double wheelDeg[3] = {0, M_PI_3, -M_PI_3};
+  constexpr double wheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
   double wheelSlow;
   int wheelSpeed[3], wheelGoal[3], wheelDelta[3], wheelPrev[3];
   // WheelSpeed Control from  Accel
@@ -131,7 +129,9 @@ int main(void) {
       wheelIn[i] = rotary[i].get();
       wheelSpeed[i] =
           (double)(wheelIn[i] - wheelInPrev[i]) / Range * WheelCirc / delta;
+      cout << wheelIn[i] << ",";
     }
+    cout << endl;
 
     //-----------Guess Field----------
     diffXY[0] = diffXY[1] = 0;
@@ -159,13 +159,11 @@ int main(void) {
 
     //----------Movement----------
     // Input
-    /*
     int stickX = Controller.stick(LEFT_X);
     int stickY = -Controller.stick(LEFT_Y);
     angleF = atan2(stickY, stickX);
     velocityF = hypot(stickX, stickY) * (fabs(0.58 * cos(2 * angleF)) + 1.4);
-    */
-    velocityR = velocityF * 5;
+    velocityR = velocityF;
     if(velocityR > SpeedMax){
       velocityR = SpeedMax;
     }
