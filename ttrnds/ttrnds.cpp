@@ -129,9 +129,11 @@ int main(void) {
     for (int i = 0; i < 3; ++i) {
       wheelInPrev[i] = wheelIn[i];
       wheelIn[i] = rotary[i].get();
+      cout << wheelIn[i] << ", ";
       wheelSpeed[i] =
           (double)(wheelIn[i] - wheelInPrev[i]) / Range * WheelCirc / delta;
     }
+    cout << endl;
 
     //-----------Guess Field----------
     diffXY[0] = diffXY[1] = 0;
@@ -150,12 +152,12 @@ int main(void) {
     if(Controller.press(CIRCLE)){
       twoTableDeg = (twoTableDeg + TwoTableAngle) % 360;
     }
-    goalX = TwoTableX + TwoTableR * sin(yawGoal);
-    goalY = TwoTableY - TwoTableR * cos(yawGoal);
+    goalX = TwoTableX + TwoTableR * sin(yawGoal * M_PI / 180);
+    goalY = TwoTableY - TwoTableR * cos(yawGoal * M_PI / 180);
+    yawGoal = twoTableDeg;
 
     velocityF = hypot(goalY - nowPoint[1], goalX - nowPoint[0]);
     angleF = atan2(goalY - nowPoint[1], goalX - nowPoint[0]);
-    yawGoal = twoTableDeg;
 
     //----------Movement----------
     // Input
@@ -171,6 +173,7 @@ int main(void) {
     }
     angleR = angleF - yaw * M_PI / 180;
 
+    /*
     moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T)) * 0.5;
     if(moment == 0){
       yawPrev = yawDelta;
@@ -184,7 +187,7 @@ int main(void) {
               yawDeff * (yawDelta - yawPrev) / delta;
       moment *= -1;
     }
-    /*
+    */
     // moment frome Lock Angle bia PID
     yawPrev = yawDelta;
     yawDelta = yawGoal - yaw;
@@ -196,7 +199,6 @@ int main(void) {
     moment = yawProp * yawDelta + yawInt * yawDelta * delta +
             yawDeff * (yawDelta - yawPrev) / delta;
     moment *= -1;
-    */
 
     if (moment > 125) {
       moment = 125;
