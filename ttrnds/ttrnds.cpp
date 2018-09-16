@@ -45,8 +45,8 @@ int main(void) {
 
   //----------IncRotary----------
   constexpr int Range = 500 * 2;
-  rotaryInc rotary[3] = {rotaryInc(17, 27, true), rotaryInc(22, 10, true),
-                         rotaryInc(9, 11, true)};
+  rotaryInc rotary[3] = {rotaryInc(10, 22, true), rotaryInc(11, 9, true),
+                         rotaryInc(27, 17, true)};
   int wheelIn[3] = {0, 0, 0};
   int wheelInPrev[3] = {0, 0, 0};
 
@@ -56,7 +56,7 @@ int main(void) {
   constexpr double firstDeg = 0;
   double nowPoint[3] = {firstX, firstY, 0};
   double diffXY[2] = {}, diffV, diffR;
-  constexpr double MatrixPoint[3][3] = {{-1.0 / 3.0, 2.0 / 3.0, -1.0 / 3.0}, {1.0 / ROOT3, 0, -1.0 / ROOT3}, {1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0}};
+  constexpr double MatrixPoint[3][3] = {{2.0 / 3.0, -1.0 / 3.0, -1.0 / 3.0}, {0, 1.0 / ROOT3, -1.0 / ROOT3}, {-1.0 / 3.0, -1.0 / 3.0, -1.0 / 3.0}};
   double constexpr WheelCirc = 101.6 * M_PI;
   
   // bia UltraSonic
@@ -76,7 +76,7 @@ int main(void) {
   constexpr int SpeedMax = 240;
   constexpr int SpeedMin = 25; 
   int wheelOut[3];
-  constexpr double wheelDeg[3] = {M_PI_3, -M_PI, -M_PI_3};
+  constexpr double wheelDeg[3] = {0, M_PI_3, -M_PI_3};
   double wheelSlow;
   int wheelSpeed[3], wheelGoal[3], wheelDelta[3], wheelPrev[3];
   // WheelSpeed Control from  Accel
@@ -129,11 +129,9 @@ int main(void) {
     for (int i = 0; i < 3; ++i) {
       wheelInPrev[i] = wheelIn[i];
       wheelIn[i] = rotary[i].get();
-      cout << wheelIn[i] << ", ";
       wheelSpeed[i] =
           (double)(wheelIn[i] - wheelInPrev[i]) / Range * WheelCirc / delta;
     }
-    cout << endl;
 
     //-----------Guess Field----------
     diffXY[0] = diffXY[1] = 0;
