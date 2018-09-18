@@ -100,7 +100,7 @@ int main(void) {
   //----------IncRotary----------
   constexpr int Range = 500 * 2;
   constexpr double WheelCirc = 101.6 * M_PI;
-  rotaryInc rotary[3] = {rotaryInc(11, 9, true), rotaryInc(27, 17, true),
+  rotaryInc rotary[3] = {rotaryInc(27, 917, true), rotaryInc(11, 9, true),
                          rotaryInc(10, 22, true)};
   int wheelIn[3] = {};
   int wheelInPrev[3] = {};
@@ -151,8 +151,8 @@ int main(void) {
     }
     deltaL = hypot(deltaX, deltaY);
     deltaA = atan2(deltaY, deltaX);
-    nowPoint[0] += deltaL * cos(deltaA + yaw * M_PI / 180);
-    nowPoint[1] += deltaL * sin(deltaA + yaw * M_PI / 180);
+    nowPoint[0] -= deltaL * cos(deltaA + yaw * M_PI / 180);
+    nowPoint[1] -= deltaL * sin(deltaA + yaw * M_PI / 180);
     cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << endl;
 
     //----------Plan Root----------
