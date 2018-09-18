@@ -71,7 +71,7 @@ int main(void) {
   constexpr int WheelID[3] = {1, 2, 3};
   constexpr int SpeedMax = 240;
   constexpr int SpeedMin = 7;
-  constexpr double wheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
+  constexpr double WheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
   double wheelSlow;
   int wheelOut[3];
 
@@ -80,7 +80,11 @@ int main(void) {
 
   // Option
   // WheelSpeed Control from  Accel
-  // Result: velocityR[PWM], Goal: velocityRGoal[PWM], Control: velocityR[PWM]
+  // Result: wheelOut[PWM], Goal: wheelGoal[PWM], Control: wheelOut[PWM]
+  constexpr double AccelMax;
+  int wheelGoal[3], wheelDelta[3];
+  double wheelAccel[3] = {}, wheelAccelPrev[3] = {}, wheelAccelMax[3] = {0};
+  long double accelTime = 0;
 
   // Lock Angle bia PID
   // Result: yaw[degree], Goal: yawLock[degree], Control: moment(define
@@ -196,7 +200,7 @@ int main(void) {
       moment *= -1;
     }
     ----------*/
-    // moment frome Lock Angle bia PID
+    // moment from Lock Angle bia PID
     yawPrev = yawDelta;
     yawDelta = yawGoal - yaw;
     if (yawDelta > 180) {
@@ -214,12 +218,12 @@ int main(void) {
       moment = -125;
     }
 
-    // wheelOut
+    // WheelOut
     int dummyMax = SpeedMax;
     for (int i = 0; i < 3; ++i) {
-      wheelOut[i] = velocityR * wheel_Func(angleR + wheelDeg[i]) + moment;
-      if (abs(wheelOut[i]) > dummyMax) {
-        dummyMax = abs(wheelOut[i]);
+      wheelGoal[i] = velocityR * wheel_Func(angleR + WheelDeg[i]) + moment;
+      if (abs(wheelGoal[i]) > dummyMax) {
+        dummyMax = abs(wheelGoal[i]);
       }
     }
     wheelSlow = SpeedMax / (double)dummyMax;
@@ -230,13 +234,17 @@ int main(void) {
     }
 
     for (int i = 0; i < 3; ++i) {
-      wheelOut[i] *= wheelSlow;
-      if (0 < wheelOut[i] && wheelOut[i] < SpeedMin) {
-        wheelOut[i] = 0;
-      } else if (0 > wheelOut[i] && wheelOut[i] > -SpeedMin) {
-        wheelOut[i] = 0;
+      wheelGoal[i] *= wheelSlow;
+      if (0 < wheelGoal[i] && wheelGoal[i] < SpeedMin) {
+        wheelGoal[i] = 0;
+      } else if (0 > wheelGoal[i] && wheelGoal[i] > -SpeedMin) {
+        wheelGoal[i] = 0;
       }
     }
+
+    // WheelSpeed Control from  Accel
+
+    
 
     /*
     // Output
