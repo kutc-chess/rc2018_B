@@ -81,7 +81,7 @@ int main(void) {
   // Option
   // WheelSpeed Control from  Accel
   // Result: wheelOut[PWM], Goal: wheelGoal[PWM], Control: wheelOut[PWM]
-  constexpr double AccelMax;
+  constexpr double AccelMax = 10;
   int wheelGoal[3], wheelDelta[3];
   double wheelAccel[3] = {}, wheelAccelPrev[3] = {}, wheelAccelMax[3] = {0};
   long double accelTime = 0;
@@ -243,7 +243,6 @@ int main(void) {
     }
 
     // WheelSpeed Control from  Accel
-
     
 
     /*
