@@ -81,10 +81,12 @@ int main(void) {
   // Option
   // WheelSpeed Control from  Accel
   // Result: wheelOut[PWM], Goal: wheelGoal[PWM], Control: wheelOut[PWM]
-  constexpr double AccelMax;
+  constexpr double AccelMax = 40, Jerk = 8;
   int wheelGoal[3], wheelDelta[3];
-  double wheelAccel[3] = {}, wheelAccelPrev[3] = {}, wheelAccelMax[3] = {0};
-  long double accelTime = 0;
+  double wheelAccel[3] = {};
+  long double accelTime[3][3], accelStart;
+  bool flagAccel = false;
+  int accelPolar;
 
   // Lock Angle bia PID
   // Result: yaw[degree], Goal: yawLock[degree], Control: moment(define
@@ -165,6 +167,7 @@ int main(void) {
       goalY = TwoTableY - TwoTableR * cos(yawGoal * M_PI / 180);
       yawGoal = twoTableDeg;
       twoTableDeg = (twoTableDeg + TwoTableAngle) % 360;
+      flagAccel = true;
     }
 
     velocityF = hypot(goalY - nowPoint[1], goalX - nowPoint[0]);
@@ -243,8 +246,34 @@ int main(void) {
     }
 
     // WheelSpeed Control from  Accel
-
-    
+    if (flagAccel) {
+      accelStart = start;
+      for (int i = 0; i < 3; ++i) {
+        accelTime[i][0] = AccelMax - wheelAccel[i] / Jerk;
+        accelTime[i][2] = AccelMax / Jerk;
+        accelTime[i][1] = (abs(wheelGoal[i] - wheelOut[i]) -
+                           (accelTime[i][0] *
+                            (wheelAccel[i] + (AccelMax - wheelAccel[i]) / 2)) +
+                           accelTime[i][2] * AccelMax / 2) /
+                          AccelMax;
+        accelTime[i][1] += accelTime[i][0];
+        accelTime[i][2] += accelTime[i][1];
+        if (wheelGoal[i] > wheelOut[i]) {
+          accelPolar = 1;
+        } else {
+          accelPolar = -1;
+        }
+      }
+      flagAccel = false;
+    }
+    for (int i = 0; i < 3; ++i) {
+      if (start - accelStart > accelTime[i][2]) {
+        wheelAccel[i] -= accelPolar * Jerk;
+      } else if (start - accelStart > accelTime[i][0]) {
+        wheelAccel[i] += accelPolar * Jerk;
+      }
+      wheelOut[i] += wheelAccel[i];
+    }
 
     /*
     // Output
