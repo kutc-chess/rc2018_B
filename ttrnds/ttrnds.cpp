@@ -24,7 +24,6 @@ inline double wheel_Func(double rad);
 
 int main(void) {
   DualShock3 Controller;
-  // gpioInitialise();
   MotorSerial ms;
   // MDD通信セットアップ
   try {
@@ -73,7 +72,7 @@ int main(void) {
   constexpr int SpeedMin = 7;
   constexpr double WheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
   double wheelSlow;
-  int wheelOut[3];
+  double wheelOut[3] = {};
 
   // Input Robot View
   double velocityR, angleR, moment;
@@ -81,11 +80,11 @@ int main(void) {
   // Option
   // WheelSpeed Control from  Accel
   // Result: wheelOut[PWM], Goal: wheelGoal[PWM], Control: wheelOut[PWM]
-  constexpr double AccelMax = 40, Jerk = 8;
-  int wheelGoal[3], wheelDelta[3];
+  constexpr double AccelMax = 1, Jerk = 0.1;
+  int wheelGoal[3];
   double wheelAccel[3] = {};
-  long double accelTime[3][3], accelStart;
-  bool flagAccel = false;
+  long double accelTime[3][3] = {{}, {}, {}}, accelStart = 0;
+  bool flagAccel = true;
   int accelPolar;
 
   // Lock Angle bia PID
@@ -114,7 +113,7 @@ int main(void) {
 
   cout << "Main Start" << endl;
   gpioWrite(BCheck, 1);
-  clock_gettime(CLOCK_REALTIME, &prev);
+  clock_gettime(CLOCK_REALTIME, &now);
 
   // MainLoop
   UPDATELOOP(Controller,
@@ -137,9 +136,9 @@ int main(void) {
       wheelIn[i] = rotary[i].get();
       wheelSpeed[i] =
           (double)(wheelIn[i] - wheelInPrev[i]) * WheelCirc / (double)Range;
-      cout << wheelIn[i] << ",";
+      // cout << wheelIn[i] << ",";
     }
-    cout << endl;
+    // cout << endl;
 
     //----------Reset----------
     if (Controller.button(RIGHT) && Controller.button(SQUARE)) {
@@ -159,7 +158,7 @@ int main(void) {
     deltaA = atan2(deltaY, deltaX);
     nowPoint[0] -= deltaL * cos(deltaA + yaw * M_PI / 180);
     nowPoint[1] -= deltaL * sin(deltaA + yaw * M_PI / 180);
-    cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << endl;
+    // cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << endl;
 
     //----------Plan Root----------
     if (Controller.press(CIRCLE)) {
@@ -167,7 +166,6 @@ int main(void) {
       goalY = TwoTableY - TwoTableR * cos(yawGoal * M_PI / 180);
       yawGoal = twoTableDeg;
       twoTableDeg = (twoTableDeg + TwoTableAngle) % 360;
-      flagAccel = true;
     }
 
     velocityF = hypot(goalY - nowPoint[1], goalX - nowPoint[0]);
@@ -249,13 +247,14 @@ int main(void) {
     if (flagAccel) {
       accelStart = start;
       for (int i = 0; i < 3; ++i) {
-        accelTime[i][0] = AccelMax - wheelAccel[i] / Jerk;
+        accelTime[i][0] = (AccelMax - wheelAccel[i]) / Jerk;
         accelTime[i][2] = AccelMax / Jerk;
-        accelTime[i][1] = (abs(wheelGoal[i] - wheelOut[i]) -
+        accelTime[i][1] = (fabs((double)wheelGoal[i] - wheelOut[i]) -
                            (accelTime[i][0] *
-                            (wheelAccel[i] + (AccelMax - wheelAccel[i]) / 2)) +
-                           accelTime[i][2] * AccelMax / 2) /
+                            (wheelAccel[i] + (AccelMax - wheelAccel[i]) / 2.0)) +
+                           accelTime[i][2] * AccelMax / 2.0) /
                           AccelMax;
+        cout << accelTime[i][1] << endl;
         accelTime[i][1] += accelTime[i][0];
         accelTime[i][2] += accelTime[i][1];
         if (wheelGoal[i] > wheelOut[i]) {
@@ -267,19 +266,24 @@ int main(void) {
       flagAccel = false;
     }
     for (int i = 0; i < 3; ++i) {
-      if (start - accelStart > accelTime[i][2]) {
-        wheelAccel[i] -= accelPolar * Jerk;
-      } else if (start - accelStart > accelTime[i][0]) {
-        wheelAccel[i] += accelPolar * Jerk;
+      if (start - accelStart < accelTime[i][2]) {
+        wheelAccel[i] -= accelPolar * Jerk * delta;
+        wheelOut[i] += wheelAccel[i] * delta;
+      }else if(start - accelStart < accelTime[i][1]){
+        wheelOut[i] += wheelAccel[i] * delta;
+      } else if (start - accelStart < accelTime[i][0]) {
+        wheelAccel[i] += accelPolar * Jerk * delta;
+        wheelOut[i] += wheelAccel[i] * delta;
       }
-      wheelOut[i] += wheelAccel[i];
     }
 
-    /*
     // Output
+    cout << start << ", ";
     for (int i = 0; i < 3; ++i) {
-      cout << 4 * i + 2 << ":" << (int)wheelOut[i] << endl;
+      cout << (int)wheelOut[i] << ", ";
     }
+    cout << endl;
+    /*
     */
 
     for (int i = 0; i < 3; ++i) {
