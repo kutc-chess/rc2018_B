@@ -80,7 +80,7 @@ int main(void) {
   // Option
   // WheelSpeed Control from  Accel
   // Result: wheelOut[PWM], Goal: wheelGoal[PWM], Control: wheelOut[PWM]
-  constexpr double AccelMax = 1, Jerk = 0.1;
+  constexpr double AccelMax = 50, Jerk = 25;
   int wheelGoal[3];
   double wheelAccel[3] = {};
   long double accelTime[3][2] = {{}, {}, {}}, accelStart = 0;
@@ -247,37 +247,40 @@ int main(void) {
     if (flagAccel) {
       accelStart = start;
       for (int i = 0; i < 3; ++i) {
-        accelTime[i][0] = (AccelMax - wheelAccel[i]) / Jerk;
-        accelTime[i][1] = (fabs((double)wheelGoal[i] - wheelOut[i]) - (AccelMax + wheelAccel[i]) / 2 * accelTime[i][0] - AccelMax * AccelMax / 2 / Jerk) / AccelMax;
-        cout << accelTime[i][1] << endl;
-        accelTime[i][1] += accelTime[i][0];
-        if (wheelGoal[i] > wheelOut[i]) {
-          accelPolar = 1;
-        } else {
-          accelPolar = -1;
+        if(wheelGoal[i] != wheelOut[i]){
+          accelTime[i][0] = (AccelMax - wheelAccel[i]) / Jerk;
+          accelTime[i][1] = (fabs((double)wheelGoal[i] - wheelOut[i]) - (AccelMax + wheelAccel[i]) / 2 * accelTime[i][0] - AccelMax * AccelMax / 2 / Jerk) / AccelMax;
+          accelTime[i][1] += accelTime[i][0];
+          if (wheelGoal[i] > wheelOut[i]) {
+            accelPolar = 1;
+          } else {
+            accelPolar = -1;
+          }
         }
       }
       flagAccel = false;
     }
     for (int i = 0; i < 3; ++i) {
-      if (start - accelStart < AccelMax / Jerk) {
-        wheelAccel[i] -= accelPolar * Jerk * delta;
-        wheelOut[i] += wheelAccel[i] * delta;
-      }else if(start - accelStart < accelTime[i][1]){
-        wheelOut[i] += wheelAccel[i] * delta;
-      } else if (start - accelStart < accelTime[i][0]) {
+      if (start - accelStart < accelTime[i][0]) {
         wheelAccel[i] += accelPolar * Jerk * delta;
+        wheelOut[i] += wheelAccel[i] * delta;
+      }
+      else if(start - accelStart < accelTime[i][1]){
+        wheelOut[i] += wheelAccel[i] * delta;
+      }
+      else if (start - accelStart < AccelMax / Jerk + accelTime[i][1]) {
+        wheelAccel[i] -= accelPolar * Jerk * delta;
         wheelOut[i] += wheelAccel[i] * delta;
       }
     }
 
     // Output
+    /*
     cout << start << ", ";
     for (int i = 0; i < 3; ++i) {
       cout << (int)wheelOut[i] << ", ";
     }
     cout << endl;
-    /*
     */
 
     for (int i = 0; i < 3; ++i) {
