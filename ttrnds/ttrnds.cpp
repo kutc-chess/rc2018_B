@@ -83,7 +83,7 @@ int main(void) {
   constexpr double AccelMax = 50, Jerk = 25;
   int wheelGoal[3];
   double wheelAccel[3] = {};
-  long double accelTime[3][2] = {{}, {}, {}}, accelStart = 0;
+  long double accelTime[3][3] = {{}, {}, {}}, accelStart = 0;
   bool flagAccel = true;
   int accelPolar;
 
@@ -247,15 +247,23 @@ int main(void) {
     if (flagAccel) {
       accelStart = start;
       for (int i = 0; i < 3; ++i) {
-        if(wheelGoal[i] != wheelOut[i]){
-          accelTime[i][0] = (AccelMax - wheelAccel[i]) / Jerk;
-          accelTime[i][1] = (fabs((double)wheelGoal[i] - wheelOut[i]) - (AccelMax + wheelAccel[i]) / 2 * accelTime[i][0] - AccelMax * AccelMax / 2 / Jerk) / AccelMax;
+        accelTime[i][0] = (AccelMax - wheelAccel[i]) / Jerk;
+        accelTime[i][1] = (fabs((double)wheelGoal[i] - wheelOut[i]) -
+                           (AccelMax + wheelAccel[i]) / 2 * accelTime[i][0] -
+                           AccelMax * AccelMax / 2 / Jerk) /
+                          AccelMax;
+        accelTime[i][2] = AccelMax / Jerk;
+        if (accelTime[i][1] < 0) {
+          accelTime[i][0] += accelTime[i][1] / 2;
+          accelTime[i][2] += accelTime[i][1] / 2 + accelTime[i][0];
+        } else {
           accelTime[i][1] += accelTime[i][0];
-          if (wheelGoal[i] > wheelOut[i]) {
-            accelPolar = 1;
-          } else {
-            accelPolar = -1;
-          }
+          accelTime[i][2] += accelTime[i][1];
+        }
+        if (wheelGoal[i] > wheelOut[i]) {
+          accelPolar = 1;
+        } else {
+          accelPolar = -1;
         }
       }
       flagAccel = false;
@@ -264,11 +272,9 @@ int main(void) {
       if (start - accelStart < accelTime[i][0]) {
         wheelAccel[i] += accelPolar * Jerk * delta;
         wheelOut[i] += wheelAccel[i] * delta;
-      }
-      else if(start - accelStart < accelTime[i][1]){
+      } else if (start - accelStart < accelTime[i][1]) {
         wheelOut[i] += wheelAccel[i] * delta;
-      }
-      else if (start - accelStart < AccelMax / Jerk + accelTime[i][1]) {
+      } else if (start - accelStart <= accelTime[i][2]) {
         wheelAccel[i] -= accelPolar * Jerk * delta;
         wheelOut[i] += wheelAccel[i] * delta;
       }
