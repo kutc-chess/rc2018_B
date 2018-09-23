@@ -4,7 +4,7 @@
 ## しおり
 * [立ルンです](https://github.com/Kitasola/rc2018_B/blob/master/ttrnds)
 * [超音波センサ](https://github.com/Kitasola/rc2018_B/blob/master/UltraSonic)
-* [電磁弁](https://github.com/Kitasola/rc2018_B/blob/master/SolenoidValve)
+* [発射・装填](https://github.com/Kitasola/rc2018_B/blob/master/Loading)
 * [ゴミ箱](https://github.com/Kitasola/rc2018_B/blob/master/experiment)
 
 ## ライブラリ
