@@ -34,13 +34,13 @@ void setup() {
   slave.addCMD(10, checker);
 }
 
-constexpr int Spin = 200;
-constexpr int DelaySolenoid = 250, DelayLoad = 500, DelayArm = 1000, DelayHand = 250;
-constexpr int LimitFall = A0, LimitCatch = A1, Slit = A2, Solenoid[2] = {10, 11}, Arm = 3, Hand = 9;
+constexpr int Spin = 30;
+constexpr int DelaySolenoid = 250, DelayLoad = 500, DelayArm = 1000, DelayHand = 250, DelayShoot = 310;
+constexpr int LimitFall = A2, LimitCatch = A3, LimitArm = A0, Solenoid[2] = {10, 11}, Arm = 3, Hand = 9;
 unsigned long now = millis();
-unsigned long prevUp = now, prevDown = now, prevArm = now, prevHand = now;
+unsigned long prevUp = now, prevDown = now, prevArm = now, prevHand = now, prevShoot = now;
 boolean loadable = false;
-boolean flagFB= false;
+boolean flagFB= false, flagHand = false;
 boolean shootable = true, order = false;
 boolean nowCatch = false, prevCatch = false;
 int phase = 6;
@@ -84,17 +84,13 @@ void loop() {
   }
 
   // Judge
-  prevCatch = nowCatch;
-  nowCatch = digitalRead(LimitCatch);
-  if(prevCatch && !nowCatch){
-    if(phase == 0){
-      prevArm = now;
-      phase = 1;
-    }
-    else if(phase == 2){
-      prevHand = now;
-      phase = 3;
-    }
+  if(phase == 0 && digitalRead(LimitArm)){
+    prevArm = now;
+    phase = 1;
+  }
+  else if(phase == 2 && digitalRead(LimitCatch)){
+    prevHand = now;
+    phase = 3;
   }
   else if(phase == 1 && now - prevArm > DelayArm){
     phase = 2;
@@ -122,15 +118,18 @@ void loop() {
     shootable = false;
     loadable = true;
     order = false;
+    prevShoot = now;
+    flagHand = true;
   }
-  if(digitalRead(Slit)){
-    digitalWrite(Hand, 1);    
+  else if(now - prevShoot > DelayShoot && flagHand){
+    digitalWrite(Hand, 1);
+    flagHand = false;
   }
 
 }
 
 boolean checker(int rx_data, int& tx_data){
-  order = shootable;
+  order = shootable & rx_data;
   return shootable;
 }
 
