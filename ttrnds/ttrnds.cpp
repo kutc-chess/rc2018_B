@@ -136,9 +136,9 @@ int main(void) {
       wheelIn[i] = rotary[i].get();
       wheelSpeed[i] =
           (double)(wheelIn[i] - wheelInPrev[i]) * WheelCirc / (double)Range;
-      // cout << wheelIn[i] << ",";
+      cout << wheelIn[i] << ",";
     }
-    // cout << endl;
+    cout << endl;
 
     //----------Reset----------
     if (Controller.button(RIGHT) && Controller.button(SQUARE)) {
