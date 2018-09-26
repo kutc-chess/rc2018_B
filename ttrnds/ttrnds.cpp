@@ -21,6 +21,7 @@ using namespace RPMS;
 using namespace RPGY521;
 
 inline double wheel_Func(double rad);
+inline double check(double a, double b, double c);
 
 int main(void) {
   DualShock3 Controller;
@@ -80,7 +81,7 @@ int main(void) {
   // Option
   // WheelSpeed Control from  Accel
   // Result: wheelOut[PWM], Goal: wheelGoal[PWM], Control: wheelOut[PWM]
-  constexpr double AccelMax = 75, Jerk = 25;
+  constexpr double AccelMax = 10, Jerk = 25;
   int wheelGoal[3];
   double wheelAccel[3] = {};
   long double accelTime[3][3] = {{}, {}, {}}, accelStart = 0;
@@ -194,9 +195,14 @@ int main(void) {
       flagAccel = true;
     }
     */
-    velocityR = velocityF;
-    if (velocityF < 50) {
-      velocityR = 10;
+    velocityRPrev = velocityR;
+    if (velocityF < 200) {
+      velocityR = 0;
+    } else {
+      velocityR = SpeedMax;
+    }
+    if (velocityRPrev != velocityR) {
+      flagAccel = true;
     }
     angleR = angleF - yaw * M_PI / 180;
 
@@ -258,7 +264,6 @@ int main(void) {
     }
 
     // WheelSpeed Control from  Accel
-    /*
     if (flagAccel) {
       accelStart = start;
       for (int i = 0; i < 3; ++i) {
@@ -269,8 +274,14 @@ int main(void) {
                           AccelMax;
         accelTime[i][2] = AccelMax / Jerk;
         if (accelTime[i][1] < 0) {
-          accelTime[i][0] += accelTime[i][1] / 2;
-          accelTime[i][2] += accelTime[i][1] / 2 + accelTime[i][0];
+          accelTime[i][1] *= -1;
+          accelTime[i][0] +=
+              check((AccelMax - wheelAccel[i]) / (2 * accelTime[i][0]),
+                    AccelMax, -AccelMax * accelTime[i][1] / 2);
+          accelTime[i][2] += check(AccelMax / (2 * accelTime[i][2]), AccelMax,
+                                   -AccelMax * accelTime[i][1] / 2);
+          accelTime[i][2] += accelTime[i][0];
+          accelTime[i][1] = accelTime[i][0];
         } else {
           accelTime[i][1] += accelTime[i][0];
           accelTime[i][2] += accelTime[i][1];
@@ -280,24 +291,25 @@ int main(void) {
         } else {
           accelPolar[i] = -1;
         }
+        cout << accelPolar[i] << endl;
       }
       flagAccel = false;
-      cout << "Accel" << endl;
     }
     for (int i = 0; i < 3; ++i) {
       if (start - accelStart < accelTime[i][0]) {
-        wheelAccel[i] += accelPolar[i] * Jerk * delta;
-        wheelOut[i] += wheelAccel[i] * delta;
+        wheelAccel[i] += Jerk * delta;
+        wheelOut[i] += accelPolar[i] * wheelAccel[i] * delta;
       } else if (start - accelStart < accelTime[i][1]) {
         wheelOut[i] += accelPolar[i] * wheelAccel[i] * delta;
       } else if (start - accelStart <= accelTime[i][2]) {
-        wheelAccel[i] -= accelPolar[i] * Jerk * delta;
-        wheelOut[i] += wheelAccel[i] * delta;
+        wheelAccel[i] -= Jerk * delta;
+        wheelOut[i] += accelPolar[i] * wheelAccel[i] * delta;
       }
     }
-    */
 
     // Output
+    /*
+    */
     cout << start << ", ";
     for (int i = 0; i < 3; ++i) {
       cout << (int)wheelOut[i] << ", ";
@@ -305,7 +317,7 @@ int main(void) {
     cout << endl;
 
     for (int i = 0; i < 3; ++i) {
-      ms.send(WheelID[i], 2, wheelGoal[i]);
+      ms.send(WheelID[i], 2, wheelOut[i]);
     }
 
     //----------Emergency----------
@@ -351,4 +363,8 @@ inline double wheel_Func(double rad) {
     return 1;
   }
   return 0;
+}
+
+inline double check(double a, double b, double c) {
+  return (-b + sqrt(pow(b, 2) + 4 * a * c)) / (2 * a);
 }
