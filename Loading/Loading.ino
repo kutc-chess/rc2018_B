@@ -35,7 +35,8 @@ void setup() {
 }
 
 constexpr int Spin = 30;
-constexpr int DelaySolenoid = 250, DelayLoad = 500, DelayArm = 1000, DelayHand = 250, DelayShoot = 310;
+constexpr int DelaySolenoid = 250, DelayLoad = 500, DelayArm = 1000, DelayHand = 500;
+int delayShoot = 310;
 constexpr int LimitFall = A2, LimitCatch = A3, LimitArm = A0, Solenoid[2] = {10, 11}, Arm = 3, Hand = 9;
 unsigned long now = millis();
 unsigned long prevUp = now, prevDown = now, prevArm = now, prevHand = now, prevShoot = now;
@@ -95,7 +96,7 @@ void loop() {
   else if(phase == 1 && now - prevArm > DelayArm){
     phase = 2;
   }
-  else if(phase == 3 && now- prevHand > DelayHand){
+  else if(phase == 3 && now - prevHand > DelayHand){
     phase = 4;
   }
   else if(phase == 4 && digitalRead(LimitFall)){
@@ -121,15 +122,23 @@ void loop() {
     prevShoot = now;
     flagHand = true;
   }
-  else if(now - prevShoot > DelayShoot && flagHand){
+  else if(now - prevShoot > delayShoot && flagHand){
     digitalWrite(Hand, 1);
     flagHand = false;
   }
-
+  Serial.print(phase);
 }
 
 boolean checker(int rx_data, int& tx_data){
-  order = shootable & rx_data;
+  if(rx_data != 0){
+    order = shootable;
+  }
+  else {
+    order = false;
+  }
+  if(order){
+    delayShoot = rx_data * 10;
+  }
   return shootable;
 }
 
