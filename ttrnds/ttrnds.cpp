@@ -21,10 +21,10 @@ using namespace RPMS;
 using namespace RPGY521;
 
 inline double wheel_Func(double rad);
+inline double check(double a, double b, double c);
 
 int main(void) {
   DualShock3 Controller;
-  // gpioInitialise();
   MotorSerial ms;
   // MDD通信セットアップ
   try {
@@ -44,11 +44,11 @@ int main(void) {
 
   //----------Guess Point----------
   // Origin Point = Centerof Robot Square
-  constexpr int firstX = 740, firstY = 1520 + 89;
+  constexpr int firstX = 740, firstY = 1500 + 89;
   constexpr double firstDeg = 0;
   double nowPoint[3] = {firstX, firstY, firstDeg};
   double deltaX, deltaY, deltaL, deltaA;
-  constexpr double MatrixPoint[3][3] = {{2.0 / 3.0, -1.0 / 3.0, -1.0 / 3.0},
+  constexpr double MatrixPoint[3][3] = {{-2.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0},
                                         {0, 1.0 / ROOT3, -1.0 / ROOT3},
                                         {-1.0 / 3.0, -1.0 / 3.0, -1.0 / 3.0}};
 
@@ -58,8 +58,8 @@ int main(void) {
 
   //----------Plan Root----------
   // Goal
-  constexpr int TwoTableX = 3000, TwoTableY = 3500, TwoTableR = 1000,
-                TwoTableAngle = 20;
+  constexpr int TwoTableX = 3000, TwoTableY = 3500, TwoTableR = 1280,
+                TwoTableAngle = 30;
   int twoTableDeg = 0;
   int goalX = firstX, goalY = firstY;
 
@@ -73,20 +73,20 @@ int main(void) {
   constexpr int SpeedMin = 7;
   constexpr double WheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
   double wheelSlow;
-  int wheelOut[3];
+  double wheelOut[3] = {};
 
   // Input Robot View
-  double velocityR, angleR, moment;
+  double velocityR = 0, velocityRPrev = 0, velocityRGoal = 0, angleR, moment;
 
   // Option
   // WheelSpeed Control from  Accel
   // Result: wheelOut[PWM], Goal: wheelGoal[PWM], Control: wheelOut[PWM]
-  constexpr double AccelMax = 40, Jerk = 8;
-  int wheelGoal[3], wheelDelta[3];
+  constexpr double AccelMax = 100, Jerk = 50;
+  int wheelGoal[3];
   double wheelAccel[3] = {};
-  long double accelTime[3][3], accelStart;
-  bool flagAccel = false;
-  int accelPolar;
+  long double accelTime[3][3] = {{}, {}, {}}, accelStart = 0;
+  bool flagAccel = true, flagNear = false;
+  int accelPolar[3] = {};
 
   // Lock Angle bia PID
   // Result: yaw[degree], Goal: yawLock[degree], Control: moment(define
@@ -106,7 +106,7 @@ int main(void) {
   //----------IncRotary----------
   constexpr int Range = 500 * 2;
   constexpr double WheelCirc = 101.6 * M_PI;
-  rotaryInc rotary[3] = {rotaryInc(27, 917, true), rotaryInc(11, 9, true),
+  rotaryInc rotary[3] = {rotaryInc(27, 17, true), rotaryInc(11, 9, true),
                          rotaryInc(10, 22, true)};
   int wheelIn[3] = {};
   int wheelInPrev[3] = {};
@@ -114,7 +114,7 @@ int main(void) {
 
   cout << "Main Start" << endl;
   gpioWrite(BCheck, 1);
-  clock_gettime(CLOCK_REALTIME, &prev);
+  clock_gettime(CLOCK_REALTIME, &now);
 
   // MainLoop
   UPDATELOOP(Controller,
@@ -137,9 +137,9 @@ int main(void) {
       wheelIn[i] = rotary[i].get();
       wheelSpeed[i] =
           (double)(wheelIn[i] - wheelInPrev[i]) * WheelCirc / (double)Range;
-      cout << wheelIn[i] << ",";
+      // cout << wheelIn[i] << ",";
     }
-    cout << endl;
+    // cout << endl;
 
     //----------Reset----------
     if (Controller.button(RIGHT) && Controller.button(SQUARE)) {
@@ -167,7 +167,8 @@ int main(void) {
       goalY = TwoTableY - TwoTableR * cos(yawGoal * M_PI / 180);
       yawGoal = twoTableDeg;
       twoTableDeg = (twoTableDeg + TwoTableAngle) % 360;
-      flagAccel = true;
+    } else if (Controller.press(UP)) {
+      goalY = TwoTableY - TwoTableR;
     }
 
     velocityF = hypot(goalY - nowPoint[1], goalX - nowPoint[0]);
@@ -182,9 +183,31 @@ int main(void) {
     velocityF = hypot(stickX, stickY) * (fabs(0.58 * cos(2 * angleF)) + 1.4);
     velocityR = velocityF;
     ----------*/
-    velocityR = velocityF;
-    if (velocityR > SpeedMax) {
+    /*
+    velocityRPrev = velocityR;
+    if (velocityF > 500) {
       velocityR = SpeedMax;
+    } else {
+      velocityR = 0;
+    }
+
+    if (velocityR != velocityRPrev) {
+      flagAccel = true;
+    }
+    */
+    velocityRPrev = velocityR;
+    if (velocityF < 100) {
+      velocityR = 0;
+      flagNear = true;
+    } else {
+      velocityR = SpeedMax;
+      flagNear = false;
+    }
+    if (velocityRPrev != velocityR && !flagNear) {
+      flagAccel = true;
+    }
+    if (flagNear) {
+      velocityR = velocityF;
     }
     angleR = angleF - yaw * M_PI / 180;
 
@@ -204,16 +227,18 @@ int main(void) {
     }
     ----------*/
     // moment from Lock Angle bia PID
-    yawPrev = yawDelta;
-    yawDelta = yawGoal - yaw;
-    if (yawDelta > 180) {
-      yawDelta -= 360;
-    } else if (yawDelta <= -180) {
-      yawDelta += 360;
+    if (flagNear) {
+      yawPrev = yawDelta;
+      yawDelta = yawGoal - yaw;
+      if (yawDelta > 180) {
+        yawDelta -= 360;
+      } else if (yawDelta <= -180) {
+        yawDelta += 360;
+      }
+      moment = yawProp * yawDelta + yawInt * yawDelta * delta +
+               yawDeff * (yawDelta - yawPrev) / delta;
+      moment *= -1;
     }
-    moment = yawProp * yawDelta + yawInt * yawDelta * delta +
-             yawDeff * (yawDelta - yawPrev) / delta;
-    moment *= -1;
 
     if (moment > 125) {
       moment = 125;
@@ -249,37 +274,59 @@ int main(void) {
     if (flagAccel) {
       accelStart = start;
       for (int i = 0; i < 3; ++i) {
-        accelTime[i][0] = AccelMax - wheelAccel[i] / Jerk;
-        accelTime[i][2] = AccelMax / Jerk;
-        accelTime[i][1] = (abs(wheelGoal[i] - wheelOut[i]) -
-                           (accelTime[i][0] *
-                            (wheelAccel[i] + (AccelMax - wheelAccel[i]) / 2)) +
-                           accelTime[i][2] * AccelMax / 2) /
+        accelTime[i][0] = (AccelMax - wheelAccel[i]) / Jerk;
+        accelTime[i][1] = (fabs((double)wheelGoal[i] - wheelOut[i]) -
+                           (AccelMax + wheelAccel[i]) / 2 * accelTime[i][0] -
+                           AccelMax * AccelMax / 2 / Jerk) /
                           AccelMax;
-        accelTime[i][1] += accelTime[i][0];
-        accelTime[i][2] += accelTime[i][1];
-        if (wheelGoal[i] > wheelOut[i]) {
-          accelPolar = 1;
+        accelTime[i][2] = AccelMax / Jerk;
+        if (accelTime[i][1] < 0) {
+          accelTime[i][1] *= -1;
+          accelTime[i][0] +=
+              check((AccelMax - wheelAccel[i]) / (2 * accelTime[i][0]),
+                    AccelMax, -AccelMax * accelTime[i][1] / 2);
+          accelTime[i][2] += check(AccelMax / (2 * accelTime[i][2]), AccelMax,
+                                   -AccelMax * accelTime[i][1] / 2);
+          accelTime[i][2] += accelTime[i][0];
+          accelTime[i][1] = accelTime[i][0];
         } else {
-          accelPolar = -1;
+          accelTime[i][1] += accelTime[i][0];
+          accelTime[i][2] += accelTime[i][1];
+        }
+        if (wheelGoal[i] > wheelOut[i]) {
+          accelPolar[i] = 1;
+        } else {
+          accelPolar[i] = -1;
         }
       }
       flagAccel = false;
     }
-    for (int i = 0; i < 3; ++i) {
-      if (start - accelStart > accelTime[i][2]) {
-        wheelAccel[i] -= accelPolar * Jerk;
-      } else if (start - accelStart > accelTime[i][0]) {
-        wheelAccel[i] += accelPolar * Jerk;
+
+    if (flagNear) {
+      for (int i = 0; i < 3; ++i) {
+        wheelOut[i] = wheelGoal[i];
       }
-      wheelOut[i] += wheelAccel[i];
+    } else {
+      for (int i = 0; i < 3; ++i) {
+        if (start - accelStart < accelTime[i][0]) {
+          wheelAccel[i] += Jerk * delta;
+          wheelOut[i] += accelPolar[i] * wheelAccel[i] * delta;
+        } else if (start - accelStart < accelTime[i][1]) {
+          wheelOut[i] += accelPolar[i] * wheelAccel[i] * delta;
+        } else if (start - accelStart <= accelTime[i][2]) {
+          wheelAccel[i] -= Jerk * delta;
+          wheelOut[i] += accelPolar[i] * wheelAccel[i] * delta;
+        }
+      }
     }
 
-    /*
     // Output
+    /*
+    cout << start << ", ";
     for (int i = 0; i < 3; ++i) {
-      cout << 4 * i + 2 << ":" << (int)wheelOut[i] << endl;
+      cout << (int)wheelOut[i] << ", ";
     }
+    cout << endl;
     */
 
     for (int i = 0; i < 3; ++i) {
@@ -290,9 +337,11 @@ int main(void) {
     if (Controller.press(SELECT)) {
       UPDATELOOP(Controller, !Controller.press(SELECT)) {
         ms.send(255, 255, 0);
+        ms.send(1, 2, 0);
         if (Controller.button(START) && Controller.button(CROSS)) {
           // FinishSequence
           ms.send(255, 255, 0);
+          ms.send(1, 2, 0);
           gpioWrite(BCheck, 0);
           cout << "Main Finish" << endl;
           return -1;
@@ -302,6 +351,7 @@ int main(void) {
   }
   cout << "Main Finish" << endl;
   ms.send(255, 255, 0);
+  ms.send(1, 2, 0);
   gpioWrite(BCheck, 0);
   return 0;
 }
@@ -326,4 +376,8 @@ inline double wheel_Func(double rad) {
     return 1;
   }
   return 0;
+}
+
+inline double check(double a, double b, double c) {
+  return (-b + sqrt(pow(b, 2) + 4 * a * c)) / (2 * a);
 }
