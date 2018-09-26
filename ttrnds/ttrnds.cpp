@@ -62,6 +62,7 @@ int main(void) {
                 TwoTableAngle = 30;
   int twoTableDeg = 0;
   int goalX = firstX, goalY = firstY;
+  bool flagNear = false;
 
   // bia Field View, also yawGoal = moment
   double velocityF, angleF;
@@ -76,16 +77,15 @@ int main(void) {
   double wheelOut[3] = {};
 
   // Input Robot View
-  double velocityR = 0, velocityRPrev = 0, velocityRGoal = 0, angleR, moment;
+  double velocityR = 0, angleR, moment;
 
   // Option
   // WheelSpeed Control from  Accel
   // Result: wheelOut[PWM], Goal: wheelGoal[PWM], Control: wheelOut[PWM]
-  constexpr double AccelMax = 100, Jerk = 50;
+  constexpr double AccelMax = 200, Jerk = 50;
   int wheelGoal[3];
   double wheelAccel[3] = {};
   long double accelTime[3][3] = {{}, {}, {}}, accelStart = 0;
-  bool flagAccel = true, flagNear = false;
   int accelPolar[3] = {};
 
   // Lock Angle bia PID
@@ -159,7 +159,6 @@ int main(void) {
     deltaA = atan2(deltaY, deltaX);
     nowPoint[0] -= deltaL * cos(deltaA + yaw * M_PI / 180);
     nowPoint[1] -= deltaL * sin(deltaA + yaw * M_PI / 180);
-    cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << endl;
 
     //----------Plan Root----------
     if (Controller.press(CIRCLE)) {
@@ -183,34 +182,15 @@ int main(void) {
     velocityF = hypot(stickX, stickY) * (fabs(0.58 * cos(2 * angleF)) + 1.4);
     velocityR = velocityF;
     ----------*/
-    /*
-    velocityRPrev = velocityR;
-    if (velocityF > 500) {
-      velocityR = SpeedMax;
-    } else {
-      velocityR = 0;
-    }
-
-    if (velocityR != velocityRPrev) {
-      flagAccel = true;
-    }
-    */
-    velocityRPrev = velocityR;
-    if (velocityF < 100) {
-      velocityR = 0;
+    if (velocityF < SpeedMax) {
+      velocityR = velocityF;
       flagNear = true;
     } else {
       velocityR = SpeedMax;
       flagNear = false;
     }
-    if (velocityRPrev != velocityR && !flagNear) {
-      flagAccel = true;
-    }
-    if (flagNear) {
-      velocityR = velocityF;
-    }
-    angleR = angleF - yaw * M_PI / 180;
 
+    angleR = angleF - yaw * M_PI / 180;
     /*----------Manual
     moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T)) * 0.5;
     if(moment == 0){
@@ -227,18 +207,16 @@ int main(void) {
     }
     ----------*/
     // moment from Lock Angle bia PID
-    if (flagNear) {
-      yawPrev = yawDelta;
-      yawDelta = yawGoal - yaw;
-      if (yawDelta > 180) {
-        yawDelta -= 360;
-      } else if (yawDelta <= -180) {
-        yawDelta += 360;
-      }
-      moment = yawProp * yawDelta + yawInt * yawDelta * delta +
-               yawDeff * (yawDelta - yawPrev) / delta;
-      moment *= -1;
+    yawPrev = yawDelta;
+    yawDelta = yawGoal - yaw;
+    if (yawDelta > 180) {
+      yawDelta -= 360;
+    } else if (yawDelta <= -180) {
+      yawDelta += 360;
     }
+    moment = yawProp * yawDelta + yawInt * yawDelta * delta +
+             yawDeff * (yawDelta - yawPrev) / delta;
+    moment *= -1;
 
     if (moment > 125) {
       moment = 125;
@@ -271,7 +249,11 @@ int main(void) {
     }
 
     // WheelSpeed Control from  Accel
-    if (flagAccel) {
+    if (flagNear) {
+      for (int i = 0; i < 3; ++i) {
+        wheelOut[i] = wheelGoal[i];
+      }
+    } else {
       accelStart = start;
       for (int i = 0; i < 3; ++i) {
         accelTime[i][0] = (AccelMax - wheelAccel[i]) / Jerk;
@@ -299,14 +281,7 @@ int main(void) {
           accelPolar[i] = -1;
         }
       }
-      flagAccel = false;
-    }
 
-    if (flagNear) {
-      for (int i = 0; i < 3; ++i) {
-        wheelOut[i] = wheelGoal[i];
-      }
-    } else {
       for (int i = 0; i < 3; ++i) {
         if (start - accelStart < accelTime[i][0]) {
           wheelAccel[i] += Jerk * delta;
@@ -321,10 +296,16 @@ int main(void) {
     }
 
     // Output
-    /*
+    // Data
     cout << start << ", ";
     for (int i = 0; i < 3; ++i) {
       cout << (int)wheelOut[i] << ", ";
+    }
+    cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << endl;
+    /*
+    cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << endl;
+    for (int i = 0; i < 3; ++i) {
+      cout << wheelIn[i] << ",";
     }
     cout << endl;
     */
