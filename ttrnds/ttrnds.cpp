@@ -76,16 +76,16 @@ int main(void) {
   double wheelOut[3] = {};
 
   // Input Robot View
-  double velocityR = 0, velocityRPrev = 0, angleR, moment;
+  double velocityR = 0, velocityRPrev = 0, velocityRGoal = 0, angleR, moment;
 
   // Option
   // WheelSpeed Control from  Accel
   // Result: wheelOut[PWM], Goal: wheelGoal[PWM], Control: wheelOut[PWM]
-  constexpr double AccelMax = 10, Jerk = 25;
+  constexpr double AccelMax = 100, Jerk = 50;
   int wheelGoal[3];
   double wheelAccel[3] = {};
   long double accelTime[3][3] = {{}, {}, {}}, accelStart = 0;
-  bool flagAccel = true;
+  bool flagAccel = true, flagNear = false;
   int accelPolar[3] = {};
 
   // Lock Angle bia PID
@@ -196,13 +196,18 @@ int main(void) {
     }
     */
     velocityRPrev = velocityR;
-    if (velocityF < 200) {
+    if (velocityF < 100) {
       velocityR = 0;
+      flagNear = true;
     } else {
       velocityR = SpeedMax;
+      flagNear = false;
     }
-    if (velocityRPrev != velocityR) {
+    if (velocityRPrev != velocityR && !flagNear) {
       flagAccel = true;
+    }
+    if (flagNear) {
+      velocityR = velocityF;
     }
     angleR = angleF - yaw * M_PI / 180;
 
@@ -222,16 +227,18 @@ int main(void) {
     }
     ----------*/
     // moment from Lock Angle bia PID
-    yawPrev = yawDelta;
-    yawDelta = yawGoal - yaw;
-    if (yawDelta > 180) {
-      yawDelta -= 360;
-    } else if (yawDelta <= -180) {
-      yawDelta += 360;
+    if (flagNear) {
+      yawPrev = yawDelta;
+      yawDelta = yawGoal - yaw;
+      if (yawDelta > 180) {
+        yawDelta -= 360;
+      } else if (yawDelta <= -180) {
+        yawDelta += 360;
+      }
+      moment = yawProp * yawDelta + yawInt * yawDelta * delta +
+               yawDeff * (yawDelta - yawPrev) / delta;
+      moment *= -1;
     }
-    moment = yawProp * yawDelta + yawInt * yawDelta * delta +
-             yawDeff * (yawDelta - yawPrev) / delta;
-    moment *= -1;
 
     if (moment > 125) {
       moment = 125;
@@ -291,30 +298,36 @@ int main(void) {
         } else {
           accelPolar[i] = -1;
         }
-        cout << accelPolar[i] << endl;
       }
       flagAccel = false;
     }
-    for (int i = 0; i < 3; ++i) {
-      if (start - accelStart < accelTime[i][0]) {
-        wheelAccel[i] += Jerk * delta;
-        wheelOut[i] += accelPolar[i] * wheelAccel[i] * delta;
-      } else if (start - accelStart < accelTime[i][1]) {
-        wheelOut[i] += accelPolar[i] * wheelAccel[i] * delta;
-      } else if (start - accelStart <= accelTime[i][2]) {
-        wheelAccel[i] -= Jerk * delta;
-        wheelOut[i] += accelPolar[i] * wheelAccel[i] * delta;
+
+    if (flagNear) {
+      for (int i = 0; i < 3; ++i) {
+        wheelOut[i] = wheelGoal[i];
+      }
+    } else {
+      for (int i = 0; i < 3; ++i) {
+        if (start - accelStart < accelTime[i][0]) {
+          wheelAccel[i] += Jerk * delta;
+          wheelOut[i] += accelPolar[i] * wheelAccel[i] * delta;
+        } else if (start - accelStart < accelTime[i][1]) {
+          wheelOut[i] += accelPolar[i] * wheelAccel[i] * delta;
+        } else if (start - accelStart <= accelTime[i][2]) {
+          wheelAccel[i] -= Jerk * delta;
+          wheelOut[i] += accelPolar[i] * wheelAccel[i] * delta;
+        }
       }
     }
 
     // Output
     /*
-    */
     cout << start << ", ";
     for (int i = 0; i < 3; ++i) {
       cout << (int)wheelOut[i] << ", ";
     }
     cout << endl;
+    */
 
     for (int i = 0; i < 3; ++i) {
       ms.send(WheelID[i], 2, wheelOut[i]);
