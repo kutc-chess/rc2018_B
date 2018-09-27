@@ -82,7 +82,7 @@ int main(void) {
   // Option
   // WheelSpeed Control from  Accel
   // Result: wheelOut[PWM], Goal: wheelGoal[PWM], Control: wheelOut[PWM]
-  constexpr double AccelMax = 200, Jerk = 50;
+  constexpr double AccelMax = 190, Jerk = 400;
   int wheelGoal[3];
   double wheelAccel[3] = {};
   long double accelTime[3][3] = {{}, {}, {}}, accelStart = 0;
@@ -167,7 +167,8 @@ int main(void) {
       yawGoal = twoTableDeg;
       twoTableDeg = (twoTableDeg + TwoTableAngle) % 360;
     } else if (Controller.press(UP)) {
-      goalY = TwoTableY - TwoTableR;
+      goalX = firstX + 2000;
+      goalY = firstY + 2000;
     }
 
     velocityF = hypot(goalY - nowPoint[1], goalX - nowPoint[0]);
@@ -218,10 +219,10 @@ int main(void) {
              yawDeff * (yawDelta - yawPrev) / delta;
     moment *= -1;
 
-    if (moment > 125) {
-      moment = 125;
-    } else if (moment < -125) {
-      moment = -125;
+    if (moment > 63) {
+      moment = 63;
+    } else if (moment < -63) {
+      moment = -63;
     }
 
     // WheelOut
@@ -301,13 +302,14 @@ int main(void) {
     for (int i = 0; i < 3; ++i) {
       cout << (int)wheelOut[i] << ", ";
     }
-    cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << endl;
+    cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << ", ";
+    cout << velocityF << ", " << velocityR << ", " << angleR;
+    cout << endl;
     /*
     cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << endl;
     for (int i = 0; i < 3; ++i) {
       cout << wheelIn[i] << ",";
     }
-    cout << endl;
     */
 
     for (int i = 0; i < 3; ++i) {
