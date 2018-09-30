@@ -44,7 +44,7 @@ int main(void) {
 
   //----------Guess Point----------
   // Origin Point = Centerof Robot Square
-  constexpr int firstX = 740, firstY = 1500 + 89;
+  constexpr int firstX = 710, firstY = 1470 + 89;
   constexpr double firstDeg = 0;
   double nowPoint[3] = {firstX, firstY, firstDeg};
   double deltaX, deltaY, deltaL, deltaA;
@@ -77,14 +77,14 @@ int main(void) {
 
   // Input Robot View
   double velocityR = 0, angleR, moment;
-  bool flagNear = false;
-  constexpr int NearMin = 10;
-  constexpr int NearSpeed = 14;
+  constexpr int ErrorMin = 15, ErrorSpead = 20;
+  constexpr double ErrorReg =
+      (SpeedMax - ErrorSpead) / log(SpeedMax - ErrorMin + 1);
 
   // Option
   // WheelSpeed Control from  Accel
   // Result: wheelOut[PWM], Goal: wheelGoal[PWM], Control: wheelOut[PWM]
-  constexpr double AccelMax = 190, Jerk = 400;
+  constexpr double AccelMax = 50, Jerk = 200;
   int wheelGoal[3];
   double wheelAccel[3] = {};
   long double accelTime[3][3] = {{}, {}, {}}, accelStart = 0;
@@ -164,13 +164,14 @@ int main(void) {
 
     //----------Plan Root----------
     if (Controller.press(CIRCLE)) {
+      yawGoal = twoTableDeg;
       goalX = TwoTableX + TwoTableR * sin(yawGoal * M_PI / 180);
       goalY = TwoTableY - TwoTableR * cos(yawGoal * M_PI / 180);
-      yawGoal = twoTableDeg;
       twoTableDeg = (twoTableDeg + TwoTableAngle) % 360;
     } else if (Controller.press(UP)) {
-      goalX = firstX + 2000;
-      goalY = firstY + 2000;
+      goalX = firstX;
+      goalY = firstY;
+      yawGoal = firstDeg;
     }
 
     velocityF = hypot(goalY - nowPoint[1], goalX - nowPoint[0]);
@@ -185,11 +186,12 @@ int main(void) {
     velocityF = hypot(stickX, stickY) * (fabs(0.58 * cos(2 * angleF)) + 1.4);
     velocityR = velocityF;
     ----------*/
-    if (velocityF < SpeedMax) {
-      if (velocityF < ErrorMin && velocityF > -ErrorMin) {
-        velocityR = velocityF;
-        flagNear = true;
-      }
+    if (velocityF < ErrorMin && velocityF > -ErrorMin) {
+      velocityR = 0;
+      flagNear = true;
+    } else if (velocityF < SpeedMax) {
+      velocityR = SpeedMax - ErrorReg * log(SpeedMax - velocityF + 1);
+      flagNear = true;
     } else {
       velocityR = SpeedMax;
       flagNear = false;
@@ -212,6 +214,7 @@ int main(void) {
     }
     ----------*/
     // moment from Lock Angle bia PID
+    // if (!flagGoal) {
     yawPrev = yawDelta;
     yawDelta = yawGoal - yaw;
     if (yawDelta > 180) {
@@ -223,10 +226,10 @@ int main(void) {
              yawDeff * (yawDelta - yawPrev) / delta;
     moment *= -1;
 
-    if (moment > 63) {
-      moment = 63;
-    } else if (moment < -63) {
-      moment = -63;
+    if (moment > 50) {
+      moment = 50;
+    } else if (moment < -50) {
+      moment = -50;
     }
 
     // WheelOut
