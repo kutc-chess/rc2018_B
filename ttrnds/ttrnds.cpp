@@ -62,7 +62,6 @@ int main(void) {
                 TwoTableAngle = 30;
   int twoTableDeg = 0;
   int goalX = firstX, goalY = firstY;
-  bool flagNear = false;
 
   // bia Field View, also yawGoal = moment
   double velocityF, angleF;
@@ -78,6 +77,9 @@ int main(void) {
 
   // Input Robot View
   double velocityR = 0, angleR, moment;
+  bool flagNear = false;
+  constexpr int NearMin = 10;
+  constexpr int NearSpeed = 14;
 
   // Option
   // WheelSpeed Control from  Accel
@@ -184,8 +186,10 @@ int main(void) {
     velocityR = velocityF;
     ----------*/
     if (velocityF < SpeedMax) {
-      velocityR = velocityF;
-      flagNear = true;
+      if (velocityF < ErrorMin && velocityF > -ErrorMin) {
+        velocityR = velocityF;
+        flagNear = true;
+      }
     } else {
       velocityR = SpeedMax;
       flagNear = false;
