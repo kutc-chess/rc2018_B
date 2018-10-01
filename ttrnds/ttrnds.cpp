@@ -53,8 +53,10 @@ int main(void) {
                                         {-1.0 / 3.0, -1.0 / 3.0, -1.0 / 3.0}};
 
   // bia UltraSonic
-  // constexpr int measureX0 = 400, measureY0 = 300;
+  constexpr int measureX0 = 400, measureY0 = 510;
   // constexpr double UltraReg = 1.05;
+  bool flagUltra = false;
+  int measureY = 0;
 
   //----------Plan Root----------
   // Goal
@@ -85,7 +87,7 @@ int main(void) {
   // Option
   // WheelSpeed Control from  Accel
   // Result: wheelOut[PWM], Goal: wheelGoal[PWM], Control: wheelOut[PWM]
-  constexpr double AccelMax = 50, Jerk = 200;
+  constexpr double AccelMax = 100, Jerk = 200;
   int wheelGoal[3];
   double wheelAccel[3] = {};
   long double accelTime[3][3] = {{}, {}, {}}, accelStart = 0;
@@ -103,7 +105,7 @@ int main(void) {
   UPDATELOOP(Controller,
              !(Controller.button(RIGHT) && Controller.button(SQUARE))) {}
   //----------Gyro----------
-  GY521 gyro(0x68, 2, 1000, 1.0);
+  GY521 gyro(0x68, 1, 1000, 1.0);
   gyro.start(firstDeg);
 
   //----------IncRotary----------
@@ -163,6 +165,19 @@ int main(void) {
     nowPoint[0] -= deltaL * cos(deltaA + yaw * M_PI / 180);
     nowPoint[1] -= deltaL * sin(deltaA + yaw * M_PI / 180);
 
+    if (flagUltra) {
+      measureY = ms.send(1, 20, 1) * 10;
+      if (measureY < 200 * 10) {
+        measureY += measureY0 + 400;
+        if (yawGoal == 90 || yawGoal == 270) {
+          nowPoint[0] = TwoTableX + measureY * sin(yawGoal * M_PI / 180);
+        } else if (yawGoal == 0 && yawGoal == 180) {
+          nowPoint[1] = TwoTableY - measureY * cos(yawGoal * M_PI / 180);
+        }
+        cout << "UltraSonic" << endl;
+      }
+    }
+
     //----------Plan Root----------
     if (Controller.press(CIRCLE)) {
       yawGoal = twoTableDeg;
@@ -190,9 +205,11 @@ int main(void) {
     if (velocityF < ErrorMin && velocityF > -ErrorMin) {
       velocityR = 0;
       flagNear = true;
-    } else if (velocityF < SpeedMax * wheelSlow) {
+    } else if (velocityF < 250) {
       velocityR = SpeedMax - ErrorReg * log(SpeedMax - velocityF + 1);
+      // velocityR = ErrorMin;
       flagNear = true;
+      flagUltra = true;
     } else {
       velocityR = SpeedMax;
       flagNear = false;
