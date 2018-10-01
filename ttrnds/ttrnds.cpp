@@ -190,7 +190,7 @@ int main(void) {
     if (velocityF < ErrorMin && velocityF > -ErrorMin) {
       velocityR = 0;
       flagNear = true;
-    } else if (velocityF < SpeedMax) {
+    } else if (velocityF < SpeedMax * wheelSlow) {
       velocityR = SpeedMax - ErrorReg * log(SpeedMax - velocityF + 1);
       flagNear = true;
     } else {
@@ -215,7 +215,6 @@ int main(void) {
     }
     ----------*/
     // moment from Lock Angle bia PID
-    // if (!flagGoal) {
     yawPrev = yawDelta;
     yawDelta = yawGoal - yaw;
     if (yawDelta > 180) {
