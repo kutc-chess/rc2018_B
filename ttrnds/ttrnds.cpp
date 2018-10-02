@@ -62,9 +62,12 @@ int main(void) {
   // Goal
   constexpr int TwoTableX = 3000, TwoTableY = 3500, TwoTableR = 1280,
                 TwoTableAngle = 30;
-  int twoTableDeg = 0;
+  int twoTableDeg = -TwoTableAngle;
   int goalX = firstX, goalY = firstY;
   bool flagNear = false;
+  constexpr int ErrorMin = 15, ErrorSpead = 20;
+  constexpr double ErrorReg =
+      (SpeedMax - ErrorSpead) / log(SpeedMax - ErrorMin + 1);
 
   // bia Field View, also yawGoal = moment
   double velocityF, angleF;
@@ -80,11 +83,11 @@ int main(void) {
 
   // Input Robot View
   double velocityR = 0, angleR, moment;
-  constexpr int ErrorMin = 15, ErrorSpead = 20;
-  constexpr double ErrorReg =
-      (SpeedMax - ErrorSpead) / log(SpeedMax - ErrorMin + 1);
 
   // Option
+  constexpr double AccelMax = 100, Jerk = 200;
+  double velocityGoal[2] = {}, velocityAccel[2] = {};
+  /*
   // WheelSpeed Control from  Accel
   // Result: wheelOut[PWM], Goal: wheelGoal[PWM], Control: wheelOut[PWM]
   constexpr double AccelMax = 100, Jerk = 200;
@@ -92,6 +95,7 @@ int main(void) {
   double wheelAccel[3] = {};
   long double accelTime[3][3] = {{}, {}, {}}, accelStart = 0;
   int accelPolar[3] = {};
+  */
 
   // Lock Angle bia PID
   // Result: yaw[degree], Goal: yawLock[degree], Control: moment(define
@@ -165,25 +169,34 @@ int main(void) {
     nowPoint[0] -= deltaL * cos(deltaA + yaw * M_PI / 180);
     nowPoint[1] -= deltaL * sin(deltaA + yaw * M_PI / 180);
 
-    if (flagUltra) {
-      measureY = ms.send(1, 20, 1) * 10;
-      if (measureY < 200 * 10) {
-        measureY += measureY0 + 400;
-        if (yawGoal == 90 || yawGoal == 270) {
-          nowPoint[0] = TwoTableX + measureY * sin(yawGoal * M_PI / 180);
-        } else if (yawGoal == 0 && yawGoal == 180) {
-          nowPoint[1] = TwoTableY - measureY * cos(yawGoal * M_PI / 180);
-        }
-        cout << "UltraSonic" << endl;
+    if (twoTableDeg == 0) {
+      measureY = ms.send(5, 10, 1) * 10 + measureY0 + 400;
+      if (nowPoint[0] > TwoTableX - 300 && nowPoint[0] < TwoTableX + 300) {
+        nowPoint[1] = TwoTableY - measureY;
+      }
+    } else if (twoTableDeg == 90) {
+      measureY = ms.send(5, 10, 1) * 10 + measureY0 + 400;
+      if (nowPoint[1] > TwoTableY - 300 && nowPoint[1] < TwoTableY + 300) {
+        nowPoint[0] = TwoTableX + measureY;
+      }
+    } else if (twoTableDeg == 180) {
+      measureY = ms.send(5, 10, 1) * 10 + measureY0 + 400;
+      if (nowPoint[0] > TwoTableX - 300 && nowPoint[0] < TwoTableX + 300) {
+        nowPoint[1] = TwoTableY + measureY;
+      }
+    } else if (twoTableDeg == 270) {
+      measureY = ms.send(5, 10, 1) * 10 + measureY0 + 400;
+      if (nowPoint[1] > TwoTableY - 300 && nowPoint[1] < TwoTableY + 300) {
+        nowPoint[0] = TwoTableX - measureY;
       }
     }
 
     //----------Plan Root----------
     if (Controller.press(CIRCLE)) {
+      twoTableDeg = (twoTableDeg + TwoTableAngle) % 360;
       yawGoal = twoTableDeg;
       goalX = TwoTableX + TwoTableR * sin(yawGoal * M_PI / 180);
       goalY = TwoTableY - TwoTableR * cos(yawGoal * M_PI / 180);
-      twoTableDeg = (twoTableDeg + TwoTableAngle) % 360;
     } else if (Controller.press(UP)) {
       goalX = firstX;
       goalY = firstY;
@@ -274,6 +287,7 @@ int main(void) {
     }
 
     // WheelSpeed Control from  Accel
+    /*
     if (flagNear) {
       for (int i = 0; i < 3; ++i) {
         wheelOut[i] = wheelGoal[i];
@@ -319,6 +333,7 @@ int main(void) {
         }
       }
     }
+    */
 
     // Output
     // Data
