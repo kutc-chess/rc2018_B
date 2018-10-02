@@ -61,8 +61,9 @@ int main(void) {
   // Goal
   constexpr int TwoTableX = 3000, TwoTableY = 3500, TwoTableR = 1280,
                 TwoTableAngle = 30;
-  int twoTableDeg = -TwoTableAngle;
+  int twoTableDeg = -TwoTableAngle + 270;
   int goalX = firstX, goalY = firstY;
+  bool flagNear = false;
 
   // bia Field View, also yawGoal = moment
   double velocityF, angleF;
@@ -87,8 +88,8 @@ int main(void) {
   // Result: velocityOut[PWM], Goal: velocityGoal[PWM], Control:velocityOut[PWM]
   constexpr double AccelMax = 100, Jerk = 200;
   double velocityGoal[2] = {}, velocityAccel[2] = {}, velocityOut[2] = {};
-  long double accelTime[3][3] = {{}, {}, {}}, accelStart = 0;
-  int accelPolar[3] = {};
+  long double accelTime[2][3] = {{}, {}}, accelStart = 0;
+  int accelPolar[2] = {};
 
   // Lock Angle bia PID
   // Result: yaw[degree], Goal: yawLock[degree], Control: moment(define
@@ -163,22 +164,22 @@ int main(void) {
     nowPoint[1] -= deltaL * sin(deltaA + yaw * M_PI / 180);
 
     if (twoTableDeg == 0) {
-      measureY = ms.send(5, 10, 1) * 10 + measureY0 + 400;
+      measureY = ms.send(1, 20, 1) * 10 + measureY0 + 400;
       if (nowPoint[0] > TwoTableX - 300 && nowPoint[0] < TwoTableX + 300) {
         nowPoint[1] = TwoTableY - measureY;
       }
     } else if (twoTableDeg == 90) {
-      measureY = ms.send(5, 10, 1) * 10 + measureY0 + 400;
+      measureY = ms.send(1, 20, 1) * 10 + measureY0 + 400;
       if (nowPoint[1] > TwoTableY - 300 && nowPoint[1] < TwoTableY + 300) {
         nowPoint[0] = TwoTableX + measureY;
       }
     } else if (twoTableDeg == 180) {
-      measureY = ms.send(5, 10, 1) * 10 + measureY0 + 400;
+      measureY = ms.send(1, 20, 1) * 10 + measureY0 + 400;
       if (nowPoint[0] > TwoTableX - 300 && nowPoint[0] < TwoTableX + 300) {
         nowPoint[1] = TwoTableY + measureY;
       }
     } else if (twoTableDeg == 270) {
-      measureY = ms.send(5, 10, 1) * 10 + measureY0 + 400;
+      measureY = ms.send(1, 20, 1) * 10 + measureY0 + 400;
       if (nowPoint[1] > TwoTableY - 300 && nowPoint[1] < TwoTableY + 300) {
         nowPoint[0] = TwoTableX - measureY;
       }
@@ -201,80 +202,68 @@ int main(void) {
 
     //----------Movement----------
     // Input
-    /*---------- Manual
-    int stickX = Controller.stick(LEFT_X);
-    int stickY = -Controller.stick(LEFT_Y);
-    angleF = atan2(stickY, stickX);
-    velocityF = hypot(stickX, stickY) * (fabs(0.58 * cos(2 * angleF)) + 1.4);
-    velocityR = velocityF;
-    ----------*/
     // WheelSpeed Control from  Accel
     if (velocityF < ErrorMin && velocityF > -ErrorMin) {
       velocityF = 0;
-    } else if (velocityF < 250) {
+      flagNear = true;
+    } else if (velocityF < SpeedMax) {
       velocityF = SpeedMax - ErrorReg * log(SpeedMax - velocityF + 1);
+      flagNear = true;
       // velocityF = ErrorMin;
     } else {
       velocityF = SpeedMax;
-    }
-    velocityGoal[0] = velocityF * cos(angleF);
-    velocityGoal[1] = velocityF * sin(angleF);
-
-    accelStart = start;
-    for (int i = 0; i < 2; ++i) {
-      accelTime[i][0] = (AccelMax - velocityAccel[i]) / Jerk;
-      accelTime[i][1] = (fabs((double)velocityGoal[i] - velocityOut[i]) -
-                         (AccelMax + velocityAccel[i]) / 2 * accelTime[i][0] -
-                         AccelMax * AccelMax / 2 / Jerk) /
-                        AccelMax;
-      accelTime[i][2] = AccelMax / Jerk;
-      if (accelTime[i][1] < 0) {
-        accelTime[i][1] *= -1;
-        accelTime[i][0] +=
-            check((AccelMax - velocityAccel[i]) / (2 * accelTime[i][0]),
-                  AccelMax, -AccelMax * accelTime[i][1] / 2);
-        accelTime[i][2] += check(AccelMax / (2 * accelTime[i][2]), AccelMax,
-                                 -AccelMax * accelTime[i][1] / 2);
-        accelTime[i][2] += accelTime[i][0];
-        accelTime[i][1] = accelTime[i][0];
-      } else {
-        accelTime[i][1] += accelTime[i][0];
-        accelTime[i][2] += accelTime[i][1];
-      }
-      if (velocityGoal[i] > velocityOut[i]) {
-        accelPolar[i] = 1;
-      } else {
-        accelPolar[i] = -1;
-      }
-
-      if (start - accelStart < accelTime[i][0]) {
-        velocityAccel[i] += Jerk * delta;
-        velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
-      } else if (start - accelStart < accelTime[i][1]) {
-        velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
-      } else if (start - accelStart <= accelTime[i][2]) {
-        velocityAccel[i] -= Jerk * delta;
-        velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
-      }
+      flagNear = false;
     }
 
-    velocityR = hypot(velocityOut[0], velocityOut[1]);
-    angleR = atan2(velocityOut[1], velocityOut[0]) - yaw * M_PI / 180;
-    /*----------Manual
-    moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T)) * 0.5;
-    if(moment == 0){
-      yawPrev = yawDelta;
-      yawDelta = yawGoal - yaw;
-      if (yawDelta > 180) {
-        yawDelta -= 360;
-      } else if (yawDelta <= -180) {
-        yawDelta += 360;
+    if (flagNear) {
+      velocityOut[0] = velocityF * cos(angleF);
+      velocityOut[1] = velocityF * sin(angleF);
+      velocityR = velocityF;
+      angleR = angleF - yaw * M_PI / 180;
+    } else {
+      velocityGoal[0] = velocityF * cos(angleF);
+      velocityGoal[1] = velocityF * sin(angleF);
+      accelStart = start;
+      for (int i = 0; i < 2; ++i) {
+        accelTime[i][0] = (AccelMax - velocityAccel[i]) / Jerk;
+        accelTime[i][1] = (fabs((double)velocityGoal[i] - velocityOut[i]) -
+                           (AccelMax + velocityAccel[i]) / 2 * accelTime[i][0] -
+                           AccelMax * AccelMax / 2 / Jerk) /
+                          AccelMax;
+        accelTime[i][2] = AccelMax / Jerk;
+        if (accelTime[i][1] < 0) {
+          accelTime[i][1] *= -1;
+          accelTime[i][0] +=
+              check((AccelMax - velocityAccel[i]) / (2 * accelTime[i][0]),
+                    AccelMax, -AccelMax * accelTime[i][1] / 2);
+          accelTime[i][2] += check(AccelMax / (2 * accelTime[i][2]), AccelMax,
+                                   -AccelMax * accelTime[i][1] / 2);
+          accelTime[i][2] += accelTime[i][0];
+          accelTime[i][1] = accelTime[i][0];
+        } else {
+          accelTime[i][1] += accelTime[i][0];
+          accelTime[i][2] += accelTime[i][1];
+        }
+        if (velocityGoal[i] > velocityOut[i]) {
+          accelPolar[i] = 1;
+        } else {
+          accelPolar[i] = -1;
+        }
+
+        if (start - accelStart < accelTime[i][0]) {
+          velocityAccel[i] += Jerk * delta;
+          velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
+        } else if (start - accelStart < accelTime[i][1]) {
+          velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
+        } else if (start - accelStart <= accelTime[i][2]) {
+          velocityAccel[i] -= Jerk * delta;
+          velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
+        }
       }
-      moment = yawProp * yawDelta + yawInt * yawDelta * delta +
-              yawDeff * (yawDelta - yawPrev) / delta;
-      moment *= -1;
+      velocityR = hypot(velocityOut[0], velocityOut[1]);
+      angleR = atan2(velocityOut[1], velocityOut[0]) - yaw * M_PI / 180;
     }
-    ----------*/
+
     // moment from Lock Angle bia PID
     yawPrev = yawDelta;
     yawDelta = yawGoal - yaw;
@@ -323,16 +312,15 @@ int main(void) {
     for (int i = 0; i < 3; ++i) {
       cout << (int)wheelGoal[i] << ", ";
     }
-    cout << velocityR << ", ";
-    cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << ", ";
+    cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw;
     // cout << velocityF << ", " << velocityR << ", " << angleR;
-    cout << endl;
     /*
     cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << endl;
     for (int i = 0; i < 3; ++i) {
       cout << wheelIn[i] << ",";
     }
     */
+    cout << endl;
 
     for (int i = 0; i < 3; ++i) {
       ms.send(WheelID[i], 2, wheelGoal[i]);
