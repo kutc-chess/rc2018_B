@@ -55,7 +55,6 @@ int main(void) {
   // bia UltraSonic
   constexpr int measureX0 = 400, measureY0 = 510;
   // constexpr double UltraReg = 1.05;
-  bool flagUltra = false;
   int measureY = 0;
 
   //----------Plan Root----------
@@ -64,10 +63,6 @@ int main(void) {
                 TwoTableAngle = 30;
   int twoTableDeg = -TwoTableAngle;
   int goalX = firstX, goalY = firstY;
-  bool flagNear = false;
-  constexpr int ErrorMin = 15, ErrorSpead = 20;
-  constexpr double ErrorReg =
-      (SpeedMax - ErrorSpead) / log(SpeedMax - ErrorMin + 1);
 
   // bia Field View, also yawGoal = moment
   double velocityF, angleF;
@@ -79,23 +74,21 @@ int main(void) {
   constexpr int SpeedMin = 7;
   constexpr double WheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
   double wheelSlow;
-  double wheelOut[3] = {};
+  double wheelGoal[3] = {};
+  constexpr int ErrorMin = 15, ErrorSpead = 20;
+  constexpr double ErrorReg =
+      (SpeedMax - ErrorSpead) / log(SpeedMax - ErrorMin + 1);
 
   // Input Robot View
   double velocityR = 0, angleR, moment;
 
   // Option
-  constexpr double AccelMax = 100, Jerk = 200;
-  double velocityGoal[2] = {}, velocityAccel[2] = {};
-  /*
   // WheelSpeed Control from  Accel
-  // Result: wheelOut[PWM], Goal: wheelGoal[PWM], Control: wheelOut[PWM]
+  // Result: velocityOut[PWM], Goal: velocityGoal[PWM], Control:velocityOut[PWM]
   constexpr double AccelMax = 100, Jerk = 200;
-  int wheelGoal[3];
-  double wheelAccel[3] = {};
+  double velocityGoal[2] = {}, velocityAccel[2] = {}, velocityOut[2] = {};
   long double accelTime[3][3] = {{}, {}, {}}, accelStart = 0;
   int accelPolar[3] = {};
-  */
 
   // Lock Angle bia PID
   // Result: yaw[degree], Goal: yawLock[degree], Control: moment(define
@@ -215,20 +208,58 @@ int main(void) {
     velocityF = hypot(stickX, stickY) * (fabs(0.58 * cos(2 * angleF)) + 1.4);
     velocityR = velocityF;
     ----------*/
+    // WheelSpeed Control from  Accel
     if (velocityF < ErrorMin && velocityF > -ErrorMin) {
-      velocityR = 0;
-      flagNear = true;
+      velocityF = 0;
     } else if (velocityF < 250) {
-      velocityR = SpeedMax - ErrorReg * log(SpeedMax - velocityF + 1);
-      // velocityR = ErrorMin;
-      flagNear = true;
-      flagUltra = true;
+      velocityF = SpeedMax - ErrorReg * log(SpeedMax - velocityF + 1);
+      // velocityF = ErrorMin;
     } else {
-      velocityR = SpeedMax;
-      flagNear = false;
+      velocityF = SpeedMax;
+    }
+    velocityGoal[0] = velocityF * cos(angleF);
+    velocityGoal[1] = velocityF * sin(angleF);
+
+    accelStart = start;
+    for (int i = 0; i < 2; ++i) {
+      accelTime[i][0] = (AccelMax - velocityAccel[i]) / Jerk;
+      accelTime[i][1] = (fabs((double)velocityGoal[i] - velocityOut[i]) -
+                         (AccelMax + velocityAccel[i]) / 2 * accelTime[i][0] -
+                         AccelMax * AccelMax / 2 / Jerk) /
+                        AccelMax;
+      accelTime[i][2] = AccelMax / Jerk;
+      if (accelTime[i][1] < 0) {
+        accelTime[i][1] *= -1;
+        accelTime[i][0] +=
+            check((AccelMax - velocityAccel[i]) / (2 * accelTime[i][0]),
+                  AccelMax, -AccelMax * accelTime[i][1] / 2);
+        accelTime[i][2] += check(AccelMax / (2 * accelTime[i][2]), AccelMax,
+                                 -AccelMax * accelTime[i][1] / 2);
+        accelTime[i][2] += accelTime[i][0];
+        accelTime[i][1] = accelTime[i][0];
+      } else {
+        accelTime[i][1] += accelTime[i][0];
+        accelTime[i][2] += accelTime[i][1];
+      }
+      if (velocityGoal[i] > velocityOut[i]) {
+        accelPolar[i] = 1;
+      } else {
+        accelPolar[i] = -1;
+      }
+
+      if (start - accelStart < accelTime[i][0]) {
+        velocityAccel[i] += Jerk * delta;
+        velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
+      } else if (start - accelStart < accelTime[i][1]) {
+        velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
+      } else if (start - accelStart <= accelTime[i][2]) {
+        velocityAccel[i] -= Jerk * delta;
+        velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
+      }
     }
 
-    angleR = angleF - yaw * M_PI / 180;
+    velocityR = hypot(velocityOut[0], velocityOut[1]);
+    angleR = atan2(velocityOut[1], velocityOut[0]) - yaw * M_PI / 180;
     /*----------Manual
     moment = -(Controller.stick(LEFT_T) - Controller.stick(RIGHT_T)) * 0.5;
     if(moment == 0){
@@ -286,63 +317,15 @@ int main(void) {
       }
     }
 
-    // WheelSpeed Control from  Accel
-    /*
-    if (flagNear) {
-      for (int i = 0; i < 3; ++i) {
-        wheelOut[i] = wheelGoal[i];
-      }
-    } else {
-      accelStart = start;
-      for (int i = 0; i < 3; ++i) {
-        accelTime[i][0] = (AccelMax - wheelAccel[i]) / Jerk;
-        accelTime[i][1] = (fabs((double)wheelGoal[i] - wheelOut[i]) -
-                           (AccelMax + wheelAccel[i]) / 2 * accelTime[i][0] -
-                           AccelMax * AccelMax / 2 / Jerk) /
-                          AccelMax;
-        accelTime[i][2] = AccelMax / Jerk;
-        if (accelTime[i][1] < 0) {
-          accelTime[i][1] *= -1;
-          accelTime[i][0] +=
-              check((AccelMax - wheelAccel[i]) / (2 * accelTime[i][0]),
-                    AccelMax, -AccelMax * accelTime[i][1] / 2);
-          accelTime[i][2] += check(AccelMax / (2 * accelTime[i][2]), AccelMax,
-                                   -AccelMax * accelTime[i][1] / 2);
-          accelTime[i][2] += accelTime[i][0];
-          accelTime[i][1] = accelTime[i][0];
-        } else {
-          accelTime[i][1] += accelTime[i][0];
-          accelTime[i][2] += accelTime[i][1];
-        }
-        if (wheelGoal[i] > wheelOut[i]) {
-          accelPolar[i] = 1;
-        } else {
-          accelPolar[i] = -1;
-        }
-      }
-
-      for (int i = 0; i < 3; ++i) {
-        if (start - accelStart < accelTime[i][0]) {
-          wheelAccel[i] += Jerk * delta;
-          wheelOut[i] += accelPolar[i] * wheelAccel[i] * delta;
-        } else if (start - accelStart < accelTime[i][1]) {
-          wheelOut[i] += accelPolar[i] * wheelAccel[i] * delta;
-        } else if (start - accelStart <= accelTime[i][2]) {
-          wheelAccel[i] -= Jerk * delta;
-          wheelOut[i] += accelPolar[i] * wheelAccel[i] * delta;
-        }
-      }
-    }
-    */
-
     // Output
     // Data
     cout << start << ", ";
     for (int i = 0; i < 3; ++i) {
-      cout << (int)wheelOut[i] << ", ";
+      cout << (int)wheelGoal[i] << ", ";
     }
+    cout << velocityR << ", ";
     cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << ", ";
-    cout << velocityF << ", " << velocityR << ", " << angleR;
+    // cout << velocityF << ", " << velocityR << ", " << angleR;
     cout << endl;
     /*
     cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << endl;
@@ -352,7 +335,7 @@ int main(void) {
     */
 
     for (int i = 0; i < 3; ++i) {
-      ms.send(WheelID[i], 2, wheelOut[i]);
+      ms.send(WheelID[i], 2, wheelGoal[i]);
     }
 
     //----------Emergency----------
