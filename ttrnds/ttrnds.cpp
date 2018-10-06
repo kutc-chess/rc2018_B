@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
 #define ROOT2 (1.41421356)
 #define ROOT3 (1.7320508)
 #define M_PI_3 (M_PI / 3)
@@ -65,7 +66,7 @@ int main(void) {
 
   //----------Guess Point----------
   // Origin Point = Centerof Robot Square
-  constexpr int firstX = 710, firstY = 1470 + 89;
+  constexpr int firstX = 460, firstY = 1470 + 89;
   constexpr double firstDeg = 0;
   double nowPoint[3] = {firstX, firstY, firstDeg};
   double deltaX, deltaY, deltaL, deltaA;
@@ -74,9 +75,9 @@ int main(void) {
                                         {-1.0 / 3.0, -1.0 / 3.0, -1.0 / 3.0}};
 
   // bia UltraSonic
-  constexpr int measureX0 = 400, measureY0 = 510;
+  constexpr int measureL0 = 400, measureR0 = 400, measureY0 = 510;
   // constexpr double UltraReg = 1.05;
-  int measureY = 0;
+  int measureL = 0, measureR = 0, measureY = 0;
 
   //----------Plan Root----------
   // Goal
@@ -88,6 +89,9 @@ int main(void) {
 
   constexpr int MoveTableY = 5500;
   bool flagMoveTable = false;
+
+  constexpr int HomeSpead = 50;
+  bool flagHome = true;
 
   // bia Field View, also yawGoal = moment
   double velocityF, angleF;
@@ -126,13 +130,13 @@ int main(void) {
 
   //----------Calibration----------
   while (1) {
-    if (gpioRead(CheckCal)) {
+    if (gpioRead(CheckCal) && (gpioRead(CheckRed) || gpioRead(CheckBlue))) {
       break;
     }
   }
+  sleep(1);
   //----------Gyro----------
   GY521 gyro(0x68, 2, 1000, 1.0);
-  gyro.start(firstDeg);
 
   //----------IncRotary----------
   constexpr int Range = 500 * 2;
@@ -145,16 +149,18 @@ int main(void) {
 
   while (1) {
     if (gpioRead(CheckRed)) {
+      sleep(1);
       flagZone = 0;
       gpioWrite(ZoneRed, 1);
-      cout << "Red" << endl;
       break;
     } else if (gpioRead(CheckBlue)) {
+      sleep(1);
       flagZone = 1;
       gpioWrite(ZoneBlue, 1);
       break;
     }
   }
+  gyro.start(firstDeg);
 
   cout << "Main Start" << endl;
   gpioWrite(BCheck, 1);
@@ -177,6 +183,7 @@ int main(void) {
 
     // UltraSonic
     measureY = ms.send(1, 20, 1) * 10 + measureY0;
+    measureL = ms.send(2, 20, 1) * 10 + measureL0;
 
     // RotaryInc
     for (int i = 0; i < 3; ++i) {
@@ -209,29 +216,30 @@ int main(void) {
 
     // Calibrat UltraSonic
     if (flagTwoTable) {
+      int dummyY = measureY + 400;
+      int dummyL = measureL;
       if (twoTableDeg == 0) {
-        int dummyY = measureY + 400;
         if (nowPoint[0] > TwoTableX - 300 && nowPoint[0] < TwoTableX + 300) {
           nowPoint[1] = TwoTableY - dummyY;
         }
       } else if (twoTableDeg == 90) {
-        int dummyY = measureY + 400;
         if (nowPoint[1] > TwoTableY - 300 && nowPoint[1] < TwoTableY + 300) {
           nowPoint[0] = TwoTableX + dummyY;
         }
       } else if (twoTableDeg == 180) {
-        int dummyY = measureY + 400;
         if (nowPoint[0] > TwoTableX - 300 && nowPoint[0] < TwoTableX + 300) {
           nowPoint[1] = TwoTableY + dummyY;
         }
       } else if (twoTableDeg == 270) {
-        int dummyY = measureY + 400;
         if (nowPoint[1] > TwoTableY - 300 && nowPoint[1] < TwoTableY + 300) {
           nowPoint[0] = TwoTableX - dummyY;
         }
       }
     } else if (flagMoveTable) {
       goalX = nowPoint[0] + measureY + 250 - TwoTableR;
+    } else if (flagHome) {
+      if (yaw > firstDeg - 10 && yaw < firstDeg + 10)
+        nowPoint[0] = measureL;
     }
 
     //----------Plan Root----------
@@ -241,24 +249,24 @@ int main(void) {
       goalX = TwoTableX + TwoTableR * sin(yawGoal * M_PI / 180);
       goalY = TwoTableY - TwoTableR * cos(yawGoal * M_PI / 180);
       flagTwoTable = true;
-      flagMoveTable = false;
+      flagHome = flagMoveTable = false;
     } else if (Controller.press(SQUARE)) {
-      goalX = firstX;
-      goalY = firstY;
+      goalX = firstX + 100;
+      goalY = firstY - 200;
       yawGoal = firstDeg;
       twoTableDeg = -TwoTableAngle + 270;
+      flagHome = true;
       flagTwoTable = flagMoveTable = false;
     } else if (Controller.press(UP)) {
       goalX = 1000 - measureY0;
       goalY = MoveTableY;
       yawGoal = -90;
-      flagTwoTable = false;
-      flagMoveTable = false;
+      flagHome = flagTwoTable = flagMoveTable = false;
     } else if (Controller.press(RIGHT)) {
       goalY = MoveTableY;
       yawGoal = -90;
-      flagTwoTable = false;
       flagMoveTable = true;
+      flagHome = flagTwoTable = false;
     }
 
     velocityF = hypot(goalY - nowPoint[1], goalX - nowPoint[0]);
@@ -277,6 +285,17 @@ int main(void) {
     } else {
       velocityF = SpeedMax;
       flagNear = false;
+    }
+    if (flagHome) {
+      if (velocityF < ErrorMin && velocityF > -ErrorMin) {
+        velocityF = 0;
+        flagNear = true;
+      } else if (velocityF < SpeedMax) {
+        velocityF = SpeedMax - ErrorReg * log(SpeedMax - velocityF + 1);
+        flagNear = true;
+      } else {
+        velocityF = HomeSpead;
+      }
     }
 
     if (flagNear) {
@@ -394,14 +413,12 @@ int main(void) {
     if (Controller.press(SELECT)) {
       UPDATELOOP(Controller, !Controller.press(SELECT)) {
         ms.send(255, 255, 0);
-        ms.send(1, 2, 0);
         if (Controller.button(START) && Controller.button(CROSS)) {
           // FinishSequence
           ms.send(255, 255, 0);
-          ms.send(1, 2, 0);
           gpioWrite(BCheck, 0);
-          gpioWrite(CheckRed, 0);
-          gpioWrite(CheckBlue, 0);
+          gpioWrite(ZoneRed, 0);
+          gpioWrite(ZoneBlue, 0);
           cout << "Main Finish" << endl;
           return -1;
         }
@@ -410,10 +427,9 @@ int main(void) {
   }
   cout << "Main Finish" << endl;
   ms.send(255, 255, 0);
-  ms.send(1, 2, 0);
   gpioWrite(BCheck, 0);
-  gpioWrite(CheckRed, 0);
-  gpioWrite(CheckBlue, 0);
+  gpioWrite(ZoneRed, 0);
+  gpioWrite(ZoneBlue, 0);
   return 0;
 }
 
