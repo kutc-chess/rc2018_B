@@ -66,7 +66,7 @@ int main(void) {
 
   //----------Guess Point----------
   // Origin Point = Centerof Robot Square
-  constexpr int firstX = 460, firstY = 1470 + 89;
+  constexpr int firstX = 460, firstY = 1450 + 89;
   constexpr double firstDeg = 0;
   double nowPoint[3] = {firstX, firstY, firstDeg};
   double deltaX, deltaY, deltaL, deltaA;
@@ -101,7 +101,7 @@ int main(void) {
   constexpr int WheelID[3] = {1, 2, 3};
   constexpr int SpeedMax = 200;
   constexpr int SpeedMin = 7;
-  constexpr int MomentMax = 60;
+  constexpr int MomentMax = 50;
   constexpr double WheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
   double wheelSlow;
   double wheelGoal[3] = {};
@@ -402,13 +402,10 @@ int main(void) {
     // Output
     // Data
     cout << start << ", ";
-    cout << moment;
-    /*
     for (int i = 0; i < 3; ++i) {
       cout << (int)wheelGoal[i] << ", ";
     }
     cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw;
-    */
     // cout << velocityF << ", " << velocityR << ", " << angleR;
     /*
     cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << endl;
