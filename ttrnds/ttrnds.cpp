@@ -251,7 +251,7 @@ int main(void) {
       flagTwoTable = true;
       flagHome = flagMoveTable = false;
     } else if (Controller.press(SQUARE)) {
-      goalX = firstX + 100;
+      goalX = firstX + 200;
       goalY = firstY - 200;
       yawGoal = firstDeg;
       twoTableDeg = -TwoTableAngle + 270;
