@@ -99,14 +99,15 @@ int main(void) {
   //----------Movement----------
   // OutPut
   constexpr int WheelID[3] = {1, 2, 3};
-  constexpr int SpeedMax = 240;
+  constexpr int SpeedMax = 200;
   constexpr int SpeedMin = 7;
+  constexpr int MomentMax = 60;
   constexpr double WheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
   double wheelSlow;
   double wheelGoal[3] = {};
-  constexpr int ErrorMin = 15, ErrorSpead = 20;
+  constexpr int ErrorMin = 15, ErrorSpead = 20, ErrorMax = 500;
   constexpr double ErrorReg =
-      (SpeedMax - ErrorSpead) / log(SpeedMax - ErrorMin + 1);
+      (SpeedMax - ErrorSpead) / log(ErrorMax - ErrorMin + 1);
 
   // Input Robot View
   double velocityR = 0, angleR, moment;
@@ -114,7 +115,7 @@ int main(void) {
   // Option
   // WheelSpeed Control from  Accel
   // Result: velocityOut[PWM], Goal: velocityGoal[PWM], Control:velocityOut[PWM]
-  constexpr double AccelMax = 80, Jerk = 200;
+  constexpr double AccelMax = 50, Jerk = 100;
   double velocityGoal[2] = {}, velocityAccel[2] = {}, velocityOut[2] = {};
   long double accelTime[2][3] = {{}, {}}, accelStart = 0;
   int accelPolar[2] = {};
@@ -125,8 +126,8 @@ int main(void) {
   // before)[PWM]
   double yaw, yawDelta, yawPrev;
   double yawGoal = firstDeg;
-  constexpr double yawProp = 10, yawInt = 0, yawDeff = 0;
-  // constexpr double yawProp = 22.8, yawInt = 62.4, yawDeff = 2.0;
+  constexpr double yawProp = 10, yawInt = 185.4, yawDeff = 0.672;
+  // constexpr double yawProp = 20, yawInt = 190.4, yawDeff = 0.672;
 
   //----------Calibration----------
   while (1) {
@@ -183,7 +184,7 @@ int main(void) {
 
     // UltraSonic
     measureY = ms.send(1, 20, 1) * 10 + measureY0;
-    measureL = ms.send(2, 20, 1) * 10 + measureL0;
+    // measureL = ms.send(2, 20, 1) * 10 + measureL0;
 
     // RotaryInc
     for (int i = 0; i < 3; ++i) {
@@ -237,10 +238,13 @@ int main(void) {
       }
     } else if (flagMoveTable) {
       goalX = nowPoint[0] + measureY + 250 - TwoTableR;
+    }
+    /*
     } else if (flagHome) {
       if (yaw > firstDeg - 10 && yaw < firstDeg + 10)
         nowPoint[0] = measureL;
     }
+    */
 
     //----------Plan Root----------
     if (Controller.press(CIRCLE)) {
@@ -269,6 +273,12 @@ int main(void) {
       flagHome = flagTwoTable = false;
     }
 
+    if (flagTwoTable && !flagHome && twoTableDeg != 270) {
+      yawGoal =
+          atan2(TwoTableY - nowPoint[1], TwoTableX - nowPoint[0]) * 180 / M_PI -
+          90;
+    }
+
     velocityF = hypot(goalY - nowPoint[1], goalX - nowPoint[0]);
     angleF = atan2(goalY - nowPoint[1], goalX - nowPoint[0]);
 
@@ -278,8 +288,8 @@ int main(void) {
     if (velocityF < ErrorMin && velocityF > -ErrorMin) {
       velocityF = 0;
       flagNear = true;
-    } else if (velocityF < SpeedMax) {
-      velocityF = SpeedMax - ErrorReg * log(SpeedMax - velocityF + 1);
+    } else if (velocityF < ErrorMax) {
+      velocityF = SpeedMax - ErrorReg * log(ErrorMax - velocityF + 1);
       flagNear = true;
       // velocityF = ErrorSpead;
     } else {
@@ -359,10 +369,10 @@ int main(void) {
              yawDeff * (yawDelta - yawPrev) / delta;
     moment *= -1;
 
-    if (moment > 50) {
-      moment = 50;
-    } else if (moment < -50) {
-      moment = -50;
+    if (moment > MomentMax) {
+      moment = MomentMax;
+    } else if (moment < -MomentMax) {
+      moment = -MomentMax;
     }
 
     // WheelOut
@@ -392,10 +402,13 @@ int main(void) {
     // Output
     // Data
     cout << start << ", ";
+    cout << moment;
+    /*
     for (int i = 0; i < 3; ++i) {
       cout << (int)wheelGoal[i] << ", ";
     }
     cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw;
+    */
     // cout << velocityF << ", " << velocityR << ", " << angleR;
     /*
     cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << endl;
