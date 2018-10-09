@@ -48,22 +48,23 @@ int main(void) {
   gpioSetPullUpDown(CheckBlue, PI_PUD_DOWN);
 
   constexpr int ZoneRed = 5, ZoneBlue = 20;
+  bool flagZone;
   gpioSetMode(ZoneRed, PI_OUTPUT);
   gpioWrite(ZoneRed, 0);
   gpioSetMode(ZoneBlue, PI_OUTPUT);
   gpioWrite(ZoneBlue, 0);
-
-  constexpr int CheckCal = 19, CheckReset = 16;
-  gpioSetMode(CheckCal, PI_INPUT);
-  gpioSetPullUpDown(CheckCal, PI_PUD_DOWN);
-  gpioSetMode(CheckReset, PI_INPUT);
-  gpioSetPullUpDown(CheckReset, PI_PUD_DOWN);
 
   constexpr int LEDCal = 7, LEDReset = 6;
   gpioSetMode(LEDCal, PI_OUTPUT);
   gpioWrite(LEDCal, 0);
   gpioSetMode(LEDReset, PI_OUTPUT);
   gpioWrite(LEDReset, 0);
+
+  constexpr int CheckCal = 19, CheckReset = 16;
+  gpioSetMode(CheckCal, PI_INPUT);
+  gpioSetPullUpDown(CheckCal, PI_PUD_DOWN);
+  gpioSetMode(CheckReset, PI_INPUT);
+  gpioSetPullUpDown(CheckReset, PI_PUD_DOWN);
 
   //---------Time----------
   struct timespec now, prev;
@@ -72,7 +73,7 @@ int main(void) {
   //----------Guess Point----------
   // Origin Point = Centerof Robot Square
   constexpr int firstX = 460, firstY = 1450 + 89;
-  constexpr double firstDeg = 0;
+  constexpr double firstDeg = -90;
   double nowPoint[3] = {firstX, firstY, firstDeg};
   double deltaX, deltaY, deltaL, deltaA;
   constexpr double MatrixPoint[3][3] = {{-2.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0},
@@ -90,14 +91,13 @@ int main(void) {
                 TwoTableAngle = 30;
   int twoTableDeg = -TwoTableAngle + 270;
   int goalX = firstX, goalY = firstY;
-  bool flagTwoTable = true;
+  bool flagTwoTable = false;
 
   constexpr int MoveTableY = 5500;
   bool flagMoveTable = false;
 
   constexpr int HomeSpead = 50;
   bool flagHome = true;
-  bool flagZone;
 
   // bia Field View, also yawGoal = moment
   double velocityF, angleF;
@@ -224,33 +224,31 @@ int main(void) {
     // Calibrat UltraSonic
     if (flagTwoTable) {
       int dummyY = measureY + 400;
-      int dummyL = measureL;
       if (twoTableDeg == 0) {
         if (nowPoint[0] > TwoTableX - 300 && nowPoint[0] < TwoTableX + 300) {
+          nowPoint[0] = 5000 - measureR;
           nowPoint[1] = TwoTableY - dummyY;
         }
       } else if (twoTableDeg == 90) {
         if (nowPoint[1] > TwoTableY - 300 && nowPoint[1] < TwoTableY + 300) {
           nowPoint[0] = TwoTableX + dummyY;
+          nowPoint[1] = measureL + 1250;
         }
       } else if (twoTableDeg == 180) {
         if (nowPoint[0] > TwoTableX - 300 && nowPoint[0] < TwoTableX + 300) {
+          nowPoint[0] = 5000 - measureL;
           nowPoint[1] = TwoTableY + dummyY;
         }
       } else if (twoTableDeg == 270) {
         if (nowPoint[1] > TwoTableY - 300 && nowPoint[1] < TwoTableY + 300) {
           nowPoint[0] = TwoTableX - dummyY;
+          nowPoint[1] = measureR + 1250;
         }
       }
-    } else if (flagMoveTable) {
-      goalX = nowPoint[0] + measureY + 250 - TwoTableR;
-    }
-    /*
     } else if (flagHome) {
       if (yaw > firstDeg - 10 && yaw < firstDeg + 10)
         nowPoint[0] = measureL;
     }
-    */
 
     //----------Plan Root----------
     if (Controller.press(CIRCLE)) {
@@ -279,10 +277,12 @@ int main(void) {
       flagHome = flagTwoTable = false;
     }
 
-    if (flagTwoTable && !flagHome && twoTableDeg != 270) {
+    if (flagTwoTable && !flagHome) {
       yawGoal =
           atan2(TwoTableY - nowPoint[1], TwoTableX - nowPoint[0]) * 180 / M_PI -
           90;
+    } else if (flagMoveTable) {
+      goalX = nowPoint[0] + measureY + 250 - TwoTableR;
     }
 
     velocityF = hypot(goalY - nowPoint[1], goalX - nowPoint[0]);
