@@ -72,7 +72,7 @@ int main(void) {
 
   //----------Guess Point----------
   // Origin Point = Centerof Robot Square
-  constexpr int firstX = 460, firstY = 1450 + 89;
+  constexpr int firstX = 440, firstY = 1640 + 89;
   constexpr double firstDeg = -90;
   double nowPoint[3] = {firstX, firstY, firstDeg};
   double deltaX, deltaY, deltaL, deltaA;
@@ -246,8 +246,9 @@ int main(void) {
         }
       }
     } else if (flagHome) {
-      if (yaw > firstDeg - 10 && yaw < firstDeg + 10)
-        nowPoint[0] = measureL;
+      if (nowPoint[1] > 1300 && nowPoint[1] < 1700) {
+        nowPoint[0] = 2750 - measureY;
+      }
     }
 
     //----------Plan Root----------
