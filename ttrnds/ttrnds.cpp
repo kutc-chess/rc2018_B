@@ -23,6 +23,7 @@ using namespace RPGY521;
 
 inline double wheel_Func(double rad);
 inline double check(double a, double b, double c);
+inline void finish();
 
 int main(void) {
   DualShock3 Controller;
@@ -35,26 +36,30 @@ int main(void) {
   }
 
   //----------etc.----------
+  int restart = 0;
   // Check LED
   constexpr int BCheck = 13;
   gpioSetMode(BCheck, PI_OUTPUT);
+
   constexpr int CheckRed = 8, CheckBlue = 26;
-  constexpr int ZoneRed = 5, ZoneBlue = 20;
-  bool flagZone;
-  constexpr int CheckCal = 19, CheckReset = 16;
-  constexpr int LEDCal = 7, LEDReset = 6;
   gpioSetMode(CheckRed, PI_INPUT);
   gpioSetPullUpDown(CheckRed, PI_PUD_DOWN);
   gpioSetMode(CheckBlue, PI_INPUT);
   gpioSetPullUpDown(CheckBlue, PI_PUD_DOWN);
+
+  constexpr int ZoneRed = 5, ZoneBlue = 20;
   gpioSetMode(ZoneRed, PI_OUTPUT);
   gpioWrite(ZoneRed, 0);
   gpioSetMode(ZoneBlue, PI_OUTPUT);
   gpioWrite(ZoneBlue, 0);
+
+  constexpr int CheckCal = 19, CheckReset = 16;
   gpioSetMode(CheckCal, PI_INPUT);
   gpioSetPullUpDown(CheckCal, PI_PUD_DOWN);
   gpioSetMode(CheckReset, PI_INPUT);
   gpioSetPullUpDown(CheckReset, PI_PUD_DOWN);
+
+  constexpr int LEDCal = 7, LEDReset = 6;
   gpioSetMode(LEDCal, PI_OUTPUT);
   gpioWrite(LEDCal, 0);
   gpioSetMode(LEDReset, PI_OUTPUT);
@@ -92,6 +97,7 @@ int main(void) {
 
   constexpr int HomeSpead = 50;
   bool flagHome = true;
+  bool flagZone;
 
   // bia Field View, also yawGoal = moment
   double velocityF, angleF;
@@ -114,7 +120,8 @@ int main(void) {
 
   // Option
   // WheelSpeed Control from  Accel
-  // Result: velocityOut[PWM], Goal: velocityGoal[PWM], Control:velocityOut[PWM]
+  // Result: velocityOut[PWM], Goal: velocityGoal[PWM],
+  // Control:velocityOut[PWM]
   constexpr double AccelMax = 50, Jerk = 100;
   double velocityGoal[2] = {}, velocityAccel[2] = {}, velocityOut[2] = {};
   long double accelTime[2][3] = {{}, {}}, accelStart = 0;
@@ -184,7 +191,8 @@ int main(void) {
 
     // UltraSonic
     measureY = ms.send(1, 20, 1) * 10 + measureY0;
-    // measureL = ms.send(2, 20, 1) * 10 + measureL0;
+    measureL = ms.send(2, 20, 1) * 10 + measureL0;
+    measureR = ms.send(3, 20, 1) * 10 + measureR0;
 
     // RotaryInc
     for (int i = 0; i < 3; ++i) {
@@ -192,9 +200,7 @@ int main(void) {
       wheelIn[i] = rotary[i].get();
       wheelSpeed[i] =
           (double)(wheelIn[i] - wheelInPrev[i]) * WheelCirc / (double)Range;
-      // cout << wheelIn[i] << ",";
     }
-    // cout << endl;
 
     //----------Reset----------
     if (Controller.button(RIGHT) && Controller.button(SQUARE)) {
@@ -425,22 +431,21 @@ int main(void) {
         ms.send(255, 255, 0);
         if (Controller.button(START) && Controller.button(CROSS)) {
           // FinishSequence
-          ms.send(255, 255, 0);
-          gpioWrite(BCheck, 0);
-          gpioWrite(ZoneRed, 0);
-          gpioWrite(ZoneBlue, 0);
-          cout << "Main Finish" << endl;
-          return -1;
+          restart = -1;
+          goto finish;
         }
       }
     }
   }
+finish:
   cout << "Main Finish" << endl;
   ms.send(255, 255, 0);
   gpioWrite(BCheck, 0);
   gpioWrite(ZoneRed, 0);
   gpioWrite(ZoneBlue, 0);
-  return 0;
+  gpioWrite(LEDCal, 0);
+  gpioWrite(LEDReset, 0);
+  return restart;
 }
 
 inline double wheel_Func(double rad) {
