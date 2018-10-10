@@ -91,8 +91,6 @@ int main(void) {
                 TwoTableAngle = 30;
   int twoTableDeg = -TwoTableAngle + 270;
   int goalX = firstX, goalY = firstY;
-<<<<<<< HEAD
-=======
   bool flagTwoTable = false;
 
   constexpr int MoveTableY = 5500;
@@ -100,7 +98,6 @@ int main(void) {
 
   constexpr int HomeSpead = 50;
   bool flagHome = true;
->>>>>>> 5fa96d889edb8697bfd11870f11304700efe66ac
 
   // bia Field View, also yawGoal = moment
   double velocityF, angleF;
@@ -108,7 +105,7 @@ int main(void) {
   //----------Movement----------
   // OutPut
   constexpr int WheelID[3] = {1, 2, 3};
-  constexpr int SpeedMax = 200;
+  constexpr int SpeedMax = 100;
   constexpr int SpeedMin = 7;
   constexpr int MomentMax = 50;
   constexpr double WheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
@@ -263,8 +260,8 @@ int main(void) {
       flagTwoTable = true;
       flagHome = flagMoveTable = false;
     } else if (Controller.press(SQUARE)) {
-      goalX = firstX + 200;
-      goalY = firstY - 200;
+      goalX = firstX;
+      goalY = firstY;
       yawGoal = firstDeg;
       twoTableDeg = -TwoTableAngle + 270;
       flagHome = true;
@@ -281,7 +278,7 @@ int main(void) {
       flagHome = flagTwoTable = false;
     }
 
-    if (flagTwoTable && !flagHome) {
+    if (flagTwoTable && twoTableDeg != 270) {
       yawGoal =
           atan2(TwoTableY - nowPoint[1], TwoTableX - nowPoint[0]) * 180 / M_PI -
           90;
@@ -394,11 +391,6 @@ int main(void) {
       }
     }
     wheelSlow = SpeedMax / (double)dummyMax;
-    if (Controller.button(L1)) {
-      wheelSlow *= 0.2;
-    } else if (!Controller.button(R1)) {
-      wheelSlow *= 0.5;
-    }
 
     for (int i = 0; i < 3; ++i) {
       wheelGoal[i] *= wheelSlow;
