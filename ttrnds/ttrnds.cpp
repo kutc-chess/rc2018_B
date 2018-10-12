@@ -35,6 +35,9 @@ int main(void) {
     return -1;
   }
 
+  //----------Shoot---------
+  constexpr int ShootR = 59, ShootL = 59;
+
   //----------etc.----------
   int restart = 0;
   // Check LED
@@ -72,7 +75,7 @@ int main(void) {
 
   //----------Guess Point----------
   // Origin Point = Centerof Robot Square
-  constexpr int firstX = 440, firstY = 1640 + 89;
+  constexpr int firstX = 420, firstY = 1530 + 89;
   constexpr double firstDeg = -90;
   double nowPoint[3] = {firstX, firstY, firstDeg};
   double deltaX, deltaY, deltaL, deltaA;
@@ -81,7 +84,7 @@ int main(void) {
                                         {-1.0 / 3.0, -1.0 / 3.0, -1.0 / 3.0}};
 
   // bia UltraSonic
-  constexpr int measureL0 = 400, measureR0 = 400, measureY0 = 510;
+  constexpr int measureL0 = 430, measureR0 = 430, measureY0 = 500;
   // constexpr double UltraReg = 1.05;
   int measureL = 0, measureR = 0, measureY = 0;
 
@@ -96,8 +99,8 @@ int main(void) {
   constexpr int MoveTableY = 5500;
   bool flagMoveTable = false;
 
-  constexpr int HomeSpead = 50;
-  bool flagHome = true;
+  constexpr int HomeSpead = 25;
+  bool flagHome = false;
 
   // bia Field View, also yawGoal = moment
   double velocityF, angleF;
@@ -105,13 +108,13 @@ int main(void) {
   //----------Movement----------
   // OutPut
   constexpr int WheelID[3] = {1, 2, 3};
-  constexpr int SpeedMax = 100;
+  constexpr int SpeedMax = 120;
   constexpr int SpeedMin = 7;
-  constexpr int MomentMax = 50;
+  constexpr int MomentMax = 25;
   constexpr double WheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
   double wheelSlow;
   double wheelGoal[3] = {};
-  constexpr int ErrorMin = 15, ErrorSpead = 20, ErrorMax = 500;
+  constexpr int ErrorMin = 20, ErrorSpead = 10, ErrorMax = 1000;
   constexpr double ErrorReg =
       (SpeedMax - ErrorSpead) / log(ErrorMax - ErrorMin + 1);
 
@@ -133,8 +136,8 @@ int main(void) {
   // before)[PWM]
   double yaw, yawDelta, yawPrev;
   double yawGoal = firstDeg;
-  constexpr double yawProp = 10, yawInt = 185.4, yawDeff = 0.672;
-  // constexpr double yawProp = 20, yawInt = 190.4, yawDeff = 0.672;
+  constexpr double yawProp = 7.2, yawInt = 51.42, yawDeff = 0.252;
+  // constexpr double yawProp = 10, yawInt = 185.4, yawDeff = 0.672;
 
   //----------Calibration----------
   while (1) {
@@ -155,19 +158,20 @@ int main(void) {
   int wheelInPrev[3] = {};
   double wheelSpeed[3] = {};
 
+  gpioWrite(ZoneRed, 1);
+  gpioWrite(ZoneBlue, 1);
   while (1) {
     if (gpioRead(CheckRed)) {
-      sleep(1);
       flagZone = 0;
-      gpioWrite(ZoneRed, 1);
       break;
     } else if (gpioRead(CheckBlue)) {
-      sleep(1);
       flagZone = 1;
-      gpioWrite(ZoneBlue, 1);
       break;
     }
   }
+  sleep(1);
+  gpioWrite(ZoneRed, 0);
+  gpioWrite(ZoneBlue, 0);
   gyro.start(firstDeg);
 
   cout << "Main Start" << endl;
@@ -191,7 +195,10 @@ int main(void) {
 
     // UltraSonic
     measureY = ms.send(1, 20, 1) * 10 + measureY0;
-    measureL = ms.send(2, 20, 1) * 10 + measureL0;
+    int dummyM = ms.send(2, 20, 1);
+    if (dummyM != 512 && dummyM < 30) {
+      measureL = dummyM * 10 + measureL0;
+    }
     measureR = ms.send(3, 20, 1) * 10 + measureR0;
 
     // RotaryInc
@@ -225,22 +232,22 @@ int main(void) {
     if (flagTwoTable) {
       int dummyY = measureY + 400;
       if (twoTableDeg == 0) {
-        if (nowPoint[0] > TwoTableX - 300 && nowPoint[0] < TwoTableX + 300) {
+        if (nowPoint[0] > TwoTableX - 350 && nowPoint[0] < TwoTableX + 350) {
           nowPoint[0] = 5000 - measureR;
           nowPoint[1] = TwoTableY - dummyY;
         }
       } else if (twoTableDeg == 90) {
-        if (nowPoint[1] > TwoTableY - 300 && nowPoint[1] < TwoTableY + 300) {
+        if (nowPoint[1] > TwoTableY - 350 && nowPoint[1] < TwoTableY + 350) {
           nowPoint[0] = TwoTableX + dummyY;
           nowPoint[1] = measureL + 1250;
         }
       } else if (twoTableDeg == 180) {
-        if (nowPoint[0] > TwoTableX - 300 && nowPoint[0] < TwoTableX + 300) {
+        if (nowPoint[0] > TwoTableX - 350 && nowPoint[0] < TwoTableX + 350) {
           nowPoint[0] = 5000 - measureL;
           nowPoint[1] = TwoTableY + dummyY;
         }
       } else if (twoTableDeg == 270) {
-        if (nowPoint[1] > TwoTableY - 300 && nowPoint[1] < TwoTableY + 300) {
+        if (nowPoint[1] > TwoTableY - 350 && nowPoint[1] < TwoTableY + 350) {
           nowPoint[0] = TwoTableX - dummyY;
           nowPoint[1] = measureR + 1250;
         }
@@ -404,18 +411,25 @@ int main(void) {
     // Output
     // Data
     cout << start << ", ";
+    /*
     for (int i = 0; i < 3; ++i) {
       cout << (int)wheelGoal[i] << ", ";
     }
     cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw;
     // cout << velocityF << ", " << velocityR << ", " << angleR;
-    /*
+    */
     cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << endl;
     for (int i = 0; i < 3; ++i) {
       cout << wheelIn[i] << ",";
     }
-    */
     cout << endl;
+
+    if (Controller.press(TRIANGLE)) {
+      for (int i = 0; i < 3; ++i) {
+        wheelGoal[i] = 0;
+      }
+      ms.send(5, 10, ShootR);
+    }
 
     for (int i = 0; i < 3; ++i) {
       ms.send(WheelID[i], 2, wheelGoal[i]);
