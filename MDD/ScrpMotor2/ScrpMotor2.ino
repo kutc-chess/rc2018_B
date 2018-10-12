@@ -1,8 +1,6 @@
-
 #include <ScrpSlave.h>
 #include <Utility.h>
 #include <EEPROM.h>
-#include "config.h"
 
 void changeID(byte new_id) {
   EEPROM.write(0, new_id);
@@ -10,21 +8,21 @@ void changeID(byte new_id) {
 
 ScrpSlave slave(REDE_PIN, EEPROM.read(0), changeID);
 
+constexpr int Motor[3][3] = {
+  {5, 6, 12}, 
+  {10, 11, 13}, 
+  {9, 3, 2}
+};
+constexpr int BaudRate = 115200, RedePin = 4;
+
 void setup() {
-  pinMode(REDE_PIN, OUTPUT);
-  pinMode(MTR1_FWD, OUTPUT);
-  pinMode(MTR1_RVS, OUTPUT);
-  pinMode(MTR2_FWD, OUTPUT);
-  pinMode(MTR2_RVS, OUTPUT);
-  pinMode(MTR1_LED, OUTPUT);
-  pinMode(MTR2_LED, OUTPUT);
-  pinMode(MTR3_LED, OUTPUT);
-  setPWMFrequency(MTR1_FWD, PWM_DIV8); //7812.5Hz
-  setPWMFrequency(MTR1_RVS, PWM_DIV8);
-  setPWMFrequency(MTR2_FWD, PWM_DIV8); //3906.25Hz
-  setPWMFrequency(MTR2_RVS, PWM_DIV8);
-  setPWMFrequency(MTR3_FWD, PWM_DIV8);
-  setPWMFrequency(MTR3_RVS, PWM_DIV8);
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 2; ++j) {
+      pinMode(Motor[i][j], OUTPUT);
+      setPWMFrequency(Motor[i][j], PWM_DIV64);
+    }
+    pinMode(Motor[i][2], OUTPUT);
+  }
   Serial.begin(BAUDRATE);
   slave.addCMD(2, driveMtr1);
   slave.addCMD(3, driveMtr2);
@@ -34,11 +32,8 @@ void setup() {
 
   pinMode(URTRIG, OUTPUT);
   digitalWrite(URTRIG, HIGH);
-  pinMode(URECHO, INPUT);
 }
 
-int sensorMode = 1;
-int sensorValue = 0;
 int dist = 0;
 unsigned long prev_time = millis();
 void loop() {
@@ -57,70 +52,43 @@ void loop() {
 }
 
 boolean safeOperation(int rx_data, int& tx_data) {
-  digitalWrite(MTR1_FWD, LOW);
-  digitalWrite(MTR1_RVS, LOW);
-  digitalWrite(MTR2_FWD, LOW);
-  digitalWrite(MTR2_RVS, LOW);
-  digitalWrite(MTR3_FWD, LOW);
-  digitalWrite(MTR3_RVS, LOW);
-  digitalWrite(MTR1_LED, LOW);
-  digitalWrite(MTR2_LED, LOW);
-  digitalWrite(MTR3_LED, LOW);
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      digitalWrite(Motor[i][j], LOW);
+    }
+  }
   return true;
+}
+
+inline boolean driveMtr(int rx_data, int num) {
+  rx_data = constrain(rx_data, -240, 240);
+  if (!rx_data) {
+    digitalWrite(Motor[num][0], LOW);
+    digitalWrite(Motor[num][1], LOW);
+    digitalWrite(Motor[num][2], LOW);
+  }
+  else if (0 < rx_data) {
+    digitalWrite(Motor[num][0], rx_data);
+    analogWrite(Motor[num][1], LOW);
+    digitalWrite(Motor[num][2], HIGH);
+  }
+  else {
+    digitalWrite(Motor[num][0], LOW);
+    digitalWrite(Motor[num][1], -rx_data);
+    digitalWrite(Motor[num][2], HIGH);
+  }
 }
 
 boolean driveMtr1(int rx_data, int& tx_data) {
-  rx_data = constrain(rx_data, -250, 250);
-  if (!rx_data) {
-    digitalWrite(MTR1_FWD, LOW);
-    digitalWrite(MTR1_RVS, LOW);
-    digitalWrite(MTR1_LED, LOW);
-  } else if (0 < rx_data) {
-    digitalWrite(MTR1_RVS, LOW);
-    analogWrite(MTR1_FWD, rx_data);
-    digitalWrite(MTR1_LED, HIGH);
-  } else {
-    digitalWrite(MTR1_FWD, LOW);
-    analogWrite(MTR1_RVS, -rx_data);
-    digitalWrite(MTR1_LED, HIGH);
-  }
-  return true;
+  return driveMtr(rx_data, 0);
 }
 
 boolean driveMtr2(int rx_data, int& tx_data) {
-  rx_data = constrain(rx_data, -250, 250);
-  if (!rx_data) {
-    digitalWrite(MTR2_FWD, LOW);
-    digitalWrite(MTR2_RVS, LOW);
-    digitalWrite(MTR2_LED, LOW);
-  } else if (0 < rx_data) { //-250
-    digitalWrite(MTR2_RVS, LOW);
-    analogWrite(MTR2_FWD, rx_data);
-    digitalWrite(MTR2_LED, HIGH);
-  } else {
-    digitalWrite(MTR2_FWD, LOW);
-    analogWrite(MTR2_RVS, -rx_data);
-    digitalWrite(MTR2_LED, HIGH);
-  }
-  return true;
+  return driveMtr(rx_data, 1);
 }
 
 boolean driveMtr3(int rx_data, int& tx_data) {
-  rx_data = constrain(rx_data, -250, 250);
-  if (!rx_data) {
-    digitalWrite(MTR3_FWD, LOW);
-    digitalWrite(MTR3_RVS, LOW);
-    digitalWrite(MTR3_LED, LOW);
-  } else if (0 < rx_data) {
-    digitalWrite(MTR3_RVS, LOW);
-    analogWrite(MTR3_FWD, rx_data);
-    digitalWrite(MTR3_LED, HIGH);
-  } else {
-    digitalWrite(MTR3_FWD, LOW);
-    analogWrite(MTR3_RVS, -rx_data);
-    digitalWrite(MTR3_LED, HIGH);
-  }
-  return true;
+  return driveMtr(rx_data, 2);
 }
 
 boolean ultraDist(int rx_dara, int& tx_data) {
