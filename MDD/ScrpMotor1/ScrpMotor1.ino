@@ -7,7 +7,7 @@ void changeID(byte new_id) {
   EEPROM.write(0, new_id);
 }
 
-ScrpSlave slave(REDE_PIN, EEPROM.read(0), changeID);
+ScrpSlave slave(RedePin, EEPROM.read(0), changeID);
 
 constexpr int Motor[3][3] = {
   {5, 6, 12}, 
@@ -41,7 +41,7 @@ void setup() {
     }
     pinMode(Motor[i][2], OUTPUT);
   }
-  Serial.begin(BAUDRATE);
+  Serial.begin(BaudRate);
   slave.addCMD(2, driveMtr1);
   slave.addCMD(3, driveMtr2);
   slave.addCMD(4, driveMtr3);
