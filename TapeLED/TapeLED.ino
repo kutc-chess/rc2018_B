@@ -38,6 +38,8 @@ uint32_t colors[2][2] = {
 boolean zone, arm, table, doing;
 int stage = 0, interval = 500, stepLED = 0;
 
+unsigned int stageEnd = 0;
+
 ScrpSlave slave(REDE_PIN, EEPROM.read(0), changeID);
 
 void setup() {
@@ -65,22 +67,55 @@ void loop() {
   slave.check();
   if (doing) {
     if (stage < 1) {
-      wipeLEDON();
+      onLED();
+    }
+    if (stage < 2 && millis() - stageEnd >= 5000) {
+      offLED(0);
     }
   }
+  // digitalWrite(9, HIGH);
 }
 
-boolean wipeLEDON() {
+void onLED() {
   static unsigned long preLED = 0;
   static int stepLED = 0;
   if (millis() - preLED >= interval) {
     Pixels[arm].setPixelColor(stepLED, colors[zone][table]);
     Pixels[arm].show();
+    preLED = millis();
     stepLED++;
   }
-  if (stepLED >= 15) {
+  if (stepLED >= LEDs) {
+    stageEnd = millis();
     stage++;
+    preLED = 0;
     stepLED = 0;
+  }
+}
+
+void offLED(int pattern){
+  static unsigned long preLED = 0;
+  static int stepLED = 0;
+  if (pattern == 0) { // All off
+    for (int i = 0; i < LEDs; ++i){
+      Pixels[arm].setPixelColor(i, Pixels[arm].Color(0, 0, 0));
+    }
+    Pixels[arm].show();
+    doing = 0;
+    stage = 0;
+  }else{ // Wipe off
+    if (millis() - preLED >= interval) {
+      Pixels[arm].setPixelColor(stepLED, Pixels[arm].Color(0, 0, 0));
+      Pixels[arm].show();
+      preLED = millis();
+      stepLED++;
+    }
+    if (stepLED >= LEDs) {
+      preLED = 0;
+      stepLED = 0;
+      doing = 0;
+      stage = 0;
+    }
   }
 }
 
@@ -133,10 +168,12 @@ boolean changeLEDFlag(int rx_data, int& tx_data) {
   table = 0b100 & rx_data;
   // Start shine? (Yes:1, No:0)
   doing = 0b1000 & rx_data;
+  return true;
 }
 
 boolean changeLEDInterval(int rx_data, int& tx_data) {
   // change LEDwipe interval(ms)
   interval = rx_data / 15;
+  return true;
 }
 
