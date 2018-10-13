@@ -86,8 +86,8 @@ int main(void) {
                                         {-1.0 / 3.0, -1.0 / 3.0, -1.0 / 3.0}};
 
   // bia UltraSonic
-  constexpr int measureL0 = 430, measureR0 = 430, measureY0 = 500;
-  constexpr int MeasureCal = 10;
+  constexpr int measureL0 = 445, measureR0 = 440, measureY0 = 500;
+  constexpr int MeasureCal = 40;
   constexpr int MeasureID[3] = {1, 2, 3};
   constexpr int MeasureL0 = 400, MeasureR0 = 400, MeasureY0 = 510;
   // constexpr double UltraReg = 1.05;
@@ -226,6 +226,7 @@ int main(void) {
         measure[i].clear();
       }
     }
+    cout << measureL << endl;
 
     // RotaryInc
     for (int i = 0; i < 3; ++i) {
