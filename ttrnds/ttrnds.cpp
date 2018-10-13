@@ -3,7 +3,6 @@
 #include "/home/pi/RasPiDS3/RasPiDS3.hpp"
 #include "/home/pi/Sensor/GY521/GY521.hpp"
 #include "/home/pi/Sensor/RotaryInc/RotaryInc.hpp"
-#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <pigpio.h>
@@ -11,6 +10,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+#include <vector>
 #define ROOT2 (1.41421356)
 #define ROOT3 (1.7320508)
 #define M_PI_3 (M_PI / 3)
@@ -23,6 +23,8 @@ using namespace RPGY521;
 
 inline double wheel_Func(double rad);
 inline double check(double a, double b, double c);
+inline bool yaw_check(int goal, int now);
+constexpr double ErrorYaw = 5;
 inline void finish();
 
 int main(void) {
@@ -85,8 +87,12 @@ int main(void) {
 
   // bia UltraSonic
   constexpr int measureL0 = 430, measureR0 = 430, measureY0 = 500;
+  constexpr int MeasureCal = 10;
+  constexpr int MeasureID[3] = {1, 2, 3};
+  constexpr int MeasureL0 = 400, MeasureR0 = 400, MeasureY0 = 510;
   // constexpr double UltraReg = 1.05;
-  int measureL = 0, measureR = 0, measureY = 0;
+  vector<int> measure[3];
+  double measureL = 0, measureR = 0, measureY = 0;
 
   //----------Plan Root----------
   // Goal
@@ -140,11 +146,13 @@ int main(void) {
   // constexpr double yawProp = 10, yawInt = 185.4, yawDeff = 0.672;
 
   //----------Calibration----------
+  gpioWrite(LEDCal, 1);
   while (1) {
     if (gpioRead(CheckCal) && (gpioRead(CheckRed) || gpioRead(CheckBlue))) {
       break;
     }
   }
+  gpioWrite(LEDCal, 0);
   sleep(1);
   //----------Gyro----------
   GY521 gyro(0x68, 2, 1000, 1.0);
@@ -162,16 +170,16 @@ int main(void) {
   gpioWrite(ZoneBlue, 1);
   while (1) {
     if (gpioRead(CheckRed)) {
-      flagZone = 0;
+      flagZone = 1;
+      gpioWrite(ZoneBlue, 0);
       break;
     } else if (gpioRead(CheckBlue)) {
-      flagZone = 1;
+      flagZone = -1;
+      gpioWrite(ZoneRed, 0);
       break;
     }
   }
   sleep(1);
-  gpioWrite(ZoneRed, 0);
-  gpioWrite(ZoneBlue, 0);
   gyro.start(firstDeg);
 
   cout << "Main Start" << endl;
@@ -194,12 +202,30 @@ int main(void) {
     yaw = gyro.yaw;
 
     // UltraSonic
-    measureY = ms.send(1, 20, 1) * 10 + measureY0;
-    int dummyM = ms.send(2, 20, 1);
-    if (dummyM != 512 && dummyM < 30) {
-      measureL = dummyM * 10 + measureL0;
+    for (int i = 0; i < 3; ++i) {
+      int dummyM = ms.send(MeasureID[i], 20, 1);
+      if (dummyM != 512) {
+        measure[i].push_back(dummyM);
+      }
+      if (measure[i].size() == MeasureCal) {
+        int dummySum = 0;
+        for (auto x : measure[i]) {
+          dummySum += x;
+        }
+        switch (i) {
+        case 0:
+          measureY = (double)dummySum / MeasureCal * 10 + MeasureY0;
+          break;
+        case 1:
+          measureL = (double)dummySum / MeasureCal * 10 + MeasureL0;
+          break;
+        case 2:
+          measureR = (double)dummySum / MeasureCal * 10 + MeasureR0;
+          break;
+        }
+        measure[i].clear();
+      }
     }
-    measureR = ms.send(3, 20, 1) * 10 + measureR0;
 
     // RotaryInc
     for (int i = 0; i < 3; ++i) {
@@ -210,7 +236,7 @@ int main(void) {
     }
 
     //----------Reset----------
-    if (Controller.button(RIGHT) && Controller.button(SQUARE)) {
+    if (gpioRead(CheckReset)) {
       gyro.resetYaw(firstDeg);
       nowPoint[0] = goalX = firstX;
       nowPoint[1] = goalY = firstY;
@@ -232,22 +258,26 @@ int main(void) {
     if (flagTwoTable) {
       int dummyY = measureY + 400;
       if (twoTableDeg == 0) {
-        if (nowPoint[0] > TwoTableX - 350 && nowPoint[0] < TwoTableX + 350) {
+        if (nowPoint[0] > TwoTableX - 300 && nowPoint[0] < TwoTableX + 300 &&
+            yaw_check(twoTableDeg, yaw)) {
           nowPoint[0] = 5000 - measureR;
           nowPoint[1] = TwoTableY - dummyY;
         }
       } else if (twoTableDeg == 90) {
-        if (nowPoint[1] > TwoTableY - 350 && nowPoint[1] < TwoTableY + 350) {
+        if (nowPoint[1] > TwoTableY - 300 && nowPoint[1] < TwoTableY + 300 &&
+            yaw_check(twoTableDeg, yaw)) {
           nowPoint[0] = TwoTableX + dummyY;
           nowPoint[1] = measureL + 1250;
         }
       } else if (twoTableDeg == 180) {
-        if (nowPoint[0] > TwoTableX - 350 && nowPoint[0] < TwoTableX + 350) {
+        if (nowPoint[0] > TwoTableX - 300 && nowPoint[0] < TwoTableX + 300 &&
+            yaw_check(twoTableDeg, yaw)) {
           nowPoint[0] = 5000 - measureL;
           nowPoint[1] = TwoTableY + dummyY;
         }
       } else if (twoTableDeg == 270) {
-        if (nowPoint[1] > TwoTableY - 350 && nowPoint[1] < TwoTableY + 350) {
+        if (nowPoint[1] > TwoTableY - 300 && nowPoint[1] < TwoTableY + 300 &&
+            yaw_check(twoTableDeg, yaw)) {
           nowPoint[0] = TwoTableX - dummyY;
           nowPoint[1] = measureR + 1250;
         }
@@ -255,6 +285,9 @@ int main(void) {
     } else if (flagHome) {
       if (nowPoint[1] > 1300 && nowPoint[1] < 1700) {
         nowPoint[0] = 2750 - measureY;
+      }
+      if (nowPoint[0] > 1111 && nowPoint[0] < 1112) {
+        nowPoint[0] = 29 + 89 + measureR;
       }
     }
 
@@ -274,7 +307,7 @@ int main(void) {
       flagHome = true;
       flagTwoTable = flagMoveTable = false;
     } else if (Controller.press(UP)) {
-      goalX = 1000 - measureY0;
+      goalX = 1000 - MeasureY0;
       goalY = MoveTableY;
       yawGoal = -90;
       flagHome = flagTwoTable = flagMoveTable = false;
@@ -482,4 +515,14 @@ inline double wheel_Func(double rad) {
 
 inline double check(double a, double b, double c) {
   return (-b + sqrt(pow(b, 2) + 4 * a * c)) / (2 * a);
+}
+
+inline bool yaw_check(int goal, int now) {
+  int small = goal + 360 - ErrorYaw;
+  int large = goal + 360 + ErrorYaw;
+  now = (now + 360) % 360 + 360;
+  if (now > small && now < large) {
+    return 1;
+  }
+  return 0;
 }
