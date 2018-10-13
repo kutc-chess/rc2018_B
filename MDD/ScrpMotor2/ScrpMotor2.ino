@@ -6,14 +6,16 @@ void changeID(byte new_id) {
   EEPROM.write(0, new_id);
 }
 
-ScrpSlave slave(RedePin, EEPROM.read(0), changeID);
-
 constexpr int Motor[3][3] = {
   {5, 6, 12}, 
   {10, 11, 13}, 
   {9, 3, 2}
 };
-constexpr int BaudRate = 115200, RedePin = 4;
+constexpr long BaudRate = 115200, RedePin = 4;
+constexpr int URTRIG = 9;
+constexpr int ReadPin = A0;
+
+ScrpSlave slave(RedePin, EEPROM.read(0), changeID);
 
 void setup() {
   for (int i = 0; i < 3; ++i) {
@@ -35,13 +37,14 @@ void setup() {
 }
 
 int dist = 0;
+int sensorValue = 0;
 unsigned long prev_time = millis();
 void loop() {
   slave.check();
   if (millis() - prev_time > 100) {
     digitalWrite(URTRIG, LOW);
     digitalWrite(URTRIG, HIGH);
-    sensorValue = analogRead(READPIN);
+    sensorValue = analogRead(ReadPin);
     if (sensorValue <= 10) {
       dist = 512;
     } else {

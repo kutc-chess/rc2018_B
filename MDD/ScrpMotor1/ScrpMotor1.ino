@@ -7,14 +7,15 @@ void changeID(byte new_id) {
   EEPROM.write(0, new_id);
 }
 
-ScrpSlave slave(RedePin, EEPROM.read(0), changeID);
-
 constexpr int Motor[3][3] = {
   {5, 6, 12}, 
   {10, 11, 13}, 
   {9, 3, 2}
 };
-constexpr int BaudRate = 115200, RedePin = 4;
+constexpr long BaudRate = 115200, RedePin = 4;
+
+
+ScrpSlave slave(RedePin, EEPROM.read(0), changeID);
 
 // Tape LED
 constexpr int Tape[2] = {10, 11};
@@ -101,13 +102,13 @@ inline boolean driveMtr(int rx_data, int num) {
     digitalWrite(Motor[num][2], LOW);
   }
   else if (0 < rx_data) {
-    digitalWrite(Motor[num][0], rx_data);
+    analogWrite(Motor[num][0], rx_data);
     analogWrite(Motor[num][1], LOW);
     digitalWrite(Motor[num][2], HIGH);
   }
   else {
     digitalWrite(Motor[num][0], LOW);
-    digitalWrite(Motor[num][1], -rx_data);
+    analogWrite(Motor[num][1], -rx_data);
     digitalWrite(Motor[num][2], HIGH);
   }
 }
