@@ -30,8 +30,8 @@ uint32_t colors[2][2] = {
   {Pixels[0].Color(0, 0, 0xFF), Pixels[0].Color(0x7F, 0xFF, 0xD4)}  // 2.4 & Other in BlueZone
 };
 
-boolean zone, arm, table, doing;
-int stage = 0, interval = 500, stepLED = 0;
+boolean zone, arm, table, offP, doing;
+int stage = 0, interval = 50, stepLED = 0;
 
 constexpr unsigned int UINT_MAX = 4294967295;
 unsigned int stageEnd = UINT_MAX;
@@ -84,7 +84,7 @@ void loop() {
       onLED();
     }
     if (stage == 1 && millis() - stageEnd >= 5000) {
-      offLED(0);
+      offLED(offP);
     }
   }
 }
@@ -141,8 +141,10 @@ boolean changeLEDFlag(int rx_data, int& tx_data) {
   arm = 0b10 & rx_data;
   // 2.4mTable(1) or others(0)?
   table = 0b100 & rx_data;
+  // How to off LED? (Wipe: 1, All at once: 0)
+  offP = 0b1000 & rx_data;
   // Start shine? (Yes:1, No:0)
-  doing = 0b1000 & rx_data;
+  doing = 0b10000 & rx_data;
   return true;
 }
 
