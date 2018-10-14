@@ -13,7 +13,8 @@ constexpr int Motor[3][3] = {
   {9, 3, 2}
 };
 constexpr long BaudRate = 115200, RedePin = 4;
-
+constexpr int URTRIG = 9;
+constexpr int ReadPin = A0;
 
 ScrpSlave slave(RedePin, EEPROM.read(0), changeID);
 
@@ -32,7 +33,8 @@ uint32_t colors[2][2] = {
 boolean zone, arm, table, doing;
 int stage = 0, interval = 500, stepLED = 0;
 
-unsigned int stageEnd = 0;
+constexpr unsigned int UINT_MAX = 4294967295;
+unsigned int stageEnd = UINT_MAX;
 
 void setup() {
   for (int i = 0; i < 3; ++i) {
@@ -48,6 +50,7 @@ void setup() {
   slave.addCMD(4, driveMtr3);
   slave.addCMD(20, ultraDist);
   slave.addCMD(30, changeLEDFlag);
+  slave.addCMD(31, changeLEDInterval);
   slave.addCMD(255, safeOperation);
 
   pinMode(URTRIG, OUTPUT);
@@ -60,13 +63,14 @@ void setup() {
 }
 
 int dist = 0;
+int sensorValue = 0;
 unsigned long prev_time = millis();
 void loop() {
   slave.check();
   if (millis() - prev_time > 100) {
     digitalWrite(URTRIG, LOW);
     digitalWrite(URTRIG, HIGH);
-    sensorValue = analogRead(READPIN);
+    sensorValue = analogRead(ReadPin);
     if (sensorValue <= 10) {
       dist = 512;
     } else {
@@ -76,10 +80,10 @@ void loop() {
   }
 
   if (doing) {
-    if (stage < 1) {
+    if (stage == 0) {
       onLED();
     }
-    if (stage < 2 && millis() - stageEnd >= 5000) {
+    if (stage == 1 && millis() - stageEnd >= 5000) {
       offLED(0);
     }
   }
@@ -130,6 +134,18 @@ boolean ultraDist(int rx_dara, int& tx_data) {
   return true;
 }
 
+boolean changeLEDFlag(int rx_data, int& tx_data) {
+  // RED(1) or BLUE(0)?
+  zone = 0b1 & rx_data;
+  // LEFT(1) or RIGHT(0)?
+  arm = 0b10 & rx_data;
+  // 2.4mTable(1) or others(0)?
+  table = 0b100 & rx_data;
+  // Start shine? (Yes:1, No:0)
+  doing = 0b1000 & rx_data;
+  return true;
+}
+
 boolean changeLEDInterval(int rx_data, int& tx_data) {
   // change LEDwipe interval(ms)
   interval = rx_data / LEDs;
@@ -175,6 +191,7 @@ void offLED(int pattern){
       stepLED = 0;
       doing = 0;
       stage = 0;
+      stageEnd = UINT_MAX;
     }
   }
 }
