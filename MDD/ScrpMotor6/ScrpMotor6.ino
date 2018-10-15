@@ -6,8 +6,6 @@ void changeID(byte new_id) {
   EEPROM.write(0, new_id);
 }
 
-//const number
-
 constexpr int Motor[3][3] = {
   {5, 6, 12}, 
   {10, 11, 13}, 
@@ -36,7 +34,7 @@ void setup() {
 constexpr int Spin = 30;
 constexpr int DelaySolenoid = 250, DelayLoad = 500, DelayArm = 1000, DelayHand = 550;
 int delayShoot = 310;
-constexpr int LimitFall = A3, LimitCatch = A2, LimitArm = A1, Solenoid[2] = {10, 11}, Arm = 3, Hand = 9;
+constexpr int LimitFall = A3, LimitCatch = A2, LimitArm = A1, Solenoid[2] = {10, 11}, Arm = 3, Hand = 9, Magnet = 7;
 unsigned long now = millis();
 unsigned long prevUp = now, prevDown = now, prevArm = now, prevHand = now, prevShoot = now;
 boolean loadable = false;
@@ -58,6 +56,7 @@ void loop() {
     case 1:
       driveMtr(0, 0);
       digitalWrite(Arm, 0);
+      digitalWrite(Magnet, 1);
       break;
 
     case 2:
@@ -76,6 +75,7 @@ void loop() {
     case 5:
       driveMtr(0, 0);
       digitalWrite(Solenoid[flagFB], 1);
+      digitalWrite(Magnet, 0);
       break;
 
     case 6:
@@ -135,13 +135,13 @@ inline boolean driveMtr(int rx_data, int num) {
     digitalWrite(Motor[num][2], LOW);
   }
   else if (0 < rx_data) {
-    digitalWrite(Motor[num][0], rx_data);
-    analogWrite(Motor[num][1], LOW);
+    analogWrite(Motor[num][0], rx_data);
+    digitalWrite(Motor[num][1], LOW);
     digitalWrite(Motor[num][2], HIGH);
   }
   else {
     digitalWrite(Motor[num][0], LOW);
-    digitalWrite(Motor[num][1], -rx_data);
+    analogWrite(Motor[num][1], -rx_data);
     digitalWrite(Motor[num][2], HIGH);
   }
   return true;
