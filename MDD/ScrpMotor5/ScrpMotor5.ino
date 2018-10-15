@@ -29,6 +29,7 @@ void setup() {
   slave.addCMD(3, driveMtr2);
   slave.addCMD(4, driveMtr3);
   slave.addCMD(10, checker);
+  slave.addCMD(11, calibration);
 }
 
 constexpr int Spin = 30;
@@ -166,7 +167,19 @@ boolean checker(int rx_data, int& tx_data) {
     order = false;
   }
   if (order) {
-    delayShoot = rx_data * 5;
+    delayShoot = rx_data;
   }
-  return shootable;
+  tx_data = shootable;
+  return true;
+}
+
+boolean calibration(int rx_data, int& tx_data) {
+  digitalWrite(Hand, 1);
+  delay(rx_data);
+  digitalWrite(Arm, 1);
+  delay(rx_data);
+  digitalWrite(Arm, 0);
+  delay(rx_data);
+  digitalWrite(Hand, 0);
+  return true;
 }
