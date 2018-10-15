@@ -13,7 +13,7 @@ constexpr int Motor[3][3] = {
   {9, 3, 2}
 };
 constexpr long BaudRate = 115200, RedePin = 4;
-constexpr int URTRIG = 9;
+constexpr int Urtrig = 9;
 constexpr int ReadPin = A0;
 
 ScrpSlave slave(RedePin, EEPROM.read(0), changeID);
@@ -53,8 +53,8 @@ void setup() {
   slave.addCMD(31, changeLEDInterval);
   slave.addCMD(255, safeOperation);
 
-  pinMode(URTRIG, OUTPUT);
-  digitalWrite(URTRIG, HIGH);
+  pinMode(Urtrig, OUTPUT);
+  digitalWrite(Urtrig, HIGH);
 
   Pixels[0].begin();
   Pixels[1].begin();
@@ -68,8 +68,8 @@ unsigned long prev_time = millis();
 void loop() {
   slave.check();
   if (millis() - prev_time > 100) {
-    digitalWrite(URTRIG, LOW);
-    digitalWrite(URTRIG, HIGH);
+    digitalWrite(Urtrig, LOW);
+    digitalWrite(Urtrig, HIGH);
     sensorValue = analogRead(ReadPin);
     if (sensorValue <= 10) {
       dist = 512;
@@ -107,7 +107,7 @@ inline boolean driveMtr(int rx_data, int num) {
   }
   else if (0 < rx_data) {
     analogWrite(Motor[num][0], rx_data);
-    analogWrite(Motor[num][1], LOW);
+    digitalWrite(Motor[num][1], LOW);
     digitalWrite(Motor[num][2], HIGH);
   }
   else {
