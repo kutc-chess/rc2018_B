@@ -15,23 +15,6 @@ constexpr long BaudRate = 115200, RedePin = 4;
 
 ScrpSlave slave(RedePin, EEPROM.read(0), changeID);
 
-void setup() {
-  for (int i = 0; i < 3; ++i) {
-    for (int j = 0; j < 2; ++j) {
-      pinMode(Motor[i][j], OUTPUT);
-      setPWMFrequency(Motor[i][j], PWM_DIV64);
-    }
-    pinMode(Motor[i][2], OUTPUT);
-  }
-  pinMode(RedePin, OUTPUT);
-  Serial.begin(BaudRate);
-  slave.addCMD(2, driveMtr1);
-  slave.addCMD(3, driveMtr2);
-  slave.addCMD(4, driveMtr3);
-  slave.addCMD(10, checker);
-  slave.addCMD(11, calibration);
-}
-
 constexpr int Spin = 30;
 constexpr int DelaySolenoid = 250, DelayLoad = 500, DelayArm = 1000, DelayHand = 550;
 int delayShoot = 310;
@@ -43,6 +26,24 @@ boolean flagFB = false, flagHand = false;
 boolean shootable = true, order = false;
 boolean nowCatch = false, prevCatch = false;
 int phase = 6;
+
+void setup() {
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 2; ++j) {
+      pinMode(Motor[i][j], OUTPUT);
+      setPWMFrequency(Motor[i][j], PWM_DIV64);
+    }
+    pinMode(Motor[i][2], OUTPUT);
+  }
+  pinMode(RedePin, OUTPUT);
+  pinMode(Magnet, OUTPUT);
+  Serial.begin(BaudRate);
+  slave.addCMD(2, driveMtr1);
+  slave.addCMD(3, driveMtr2);
+  slave.addCMD(4, driveMtr3);
+  slave.addCMD(10, checker);
+  slave.addCMD(11, calibration);
+}
 
 void loop() {
   slave.check();
