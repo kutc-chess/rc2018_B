@@ -80,7 +80,7 @@ int main(void) {
 
   //----------Guess Point----------
   // Origin Point = Centerof Robot Square
-  constexpr int firstX = 490, firstY = 1530 + 89;
+  constexpr int firstX = 490, firstY = 1535 + 89;
   constexpr double firstDeg = -90;
   double nowPoint[3] = {firstX, firstY, firstDeg};
   double deltaX, deltaY, deltaL, deltaA;
@@ -92,7 +92,7 @@ int main(void) {
   constexpr int MeasureCal = 7;
   constexpr int MeasureID[3] = {1, 2, 3};
   constexpr int MeasureL0 = 495, MeasureR0 = 495, MeasureY0 = 550;
-  constexpr int UltraSpead = 20;
+  constexpr int UltraSpead = 100;
   // constexpr double UltraReg = 1.05;
   vector<int> measure[3];
   double measureL = 0, measureR = 0, measureY = 0;
@@ -141,7 +141,7 @@ int main(void) {
   int accelPolar[2] = {};
   bool flagNear = false;
   long double stop = 0;
-  constexpr double StopTime = 1;
+  constexpr double StopTime = 1.5;
 
   // Lock Angle bia PID
   // Result: yaw[degree], Goal: yawLock[degree], Control: moment(define
@@ -161,7 +161,7 @@ int main(void) {
   gpioWrite(LEDCal, 0);
   sleep(1);
   //----------Gyro----------
-  GY521 gyro(0x68, 2, 1000, 1.01);
+  GY521 gyro(0x68, 2, 1000, 1.02);
 
   //----------IncRotary----------
   constexpr int Range = 500;
@@ -230,7 +230,6 @@ int main(void) {
         measure[i].clear();
       }
     }
-    cout << measureY << ", " << measureR << ", " << measureL << endl;
 
     // RotaryInc
     for (int i = 0; i < 3; ++i) {
@@ -260,7 +259,7 @@ int main(void) {
         flagHome = flagMoveTable = false;
       } else if (Controller.press(SQUARE)) {
         goalX = firstX;
-        goalY = firstY;
+        goalY = firstY - 300;
         yawGoal = firstDeg;
         twoTableDeg = -TwoTableAngle + 270;
         flagHome = true;
@@ -358,23 +357,23 @@ int main(void) {
           }
         } else if (twoTableDeg == 270) {
           if (yaw_check(twoTableDeg, yaw)) {
-            if (nowPoint[1] > TwoTableY - 350 &&
+            if (nowPoint[1] > TwoTableY - 300 &&
                 nowPoint[1] < TwoTableY + 350) {
               nowPoint[0] = TwoTableX - dummyY;
             }
             if (flagNear) {
               if (dummyY < measureR && dummyY < measureL) {
                 nowPoint[1] = goalY;
-              } else if (dummyY < measureR) {
+              } else if (dummyY < measureR || dummyY > measureL) {
                 nowPoint[1] -= UltraSpead * delta;
-              } else if (dummyY < measureL) {
+              } else if (dummyY < measureL || dummyY > measureR) {
                 nowPoint[1] += UltraSpead * delta;
               }
             }
           }
         }
       } else if (flagHome) {
-        if (nowPoint[1] > 1300 && nowPoint[1] < 1700) {
+        if (nowPoint[1] > 1300 && nowPoint[1] < 1700 && measureL< 400) {
           nowPoint[0] = 2750 - measureY;
         }
       }
