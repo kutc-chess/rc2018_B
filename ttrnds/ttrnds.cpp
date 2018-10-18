@@ -37,10 +37,6 @@ int main(void) {
     return -1;
   }
 
-  //----------Shoot---------
-  constexpr int ShootR = 290, ShootL = 299;
-  constexpr int ShootRID = 5, ShootLID = 6;
-
   //----------etc.----------
   int restart = 0;
   // Check LED
@@ -72,9 +68,15 @@ int main(void) {
   gpioSetMode(CheckReset, PI_INPUT);
   gpioSetPullUpDown(CheckReset, PI_PUD_DOWN);
 
+  int phase = 0;
+
   //---------Time----------
   struct timespec now, prev;
   long double delta, start = 0;
+
+  //----------Shoot---------
+  constexpr int ShootR = 290, ShootL = 299;
+  constexpr int ShootRID = 5, ShootLID = 6;
 
   //----------Guess Point----------
   // Origin Point = Centerof Robot Square
@@ -140,7 +142,6 @@ int main(void) {
   bool flagNear = false;
   long double stop = 0;
   constexpr double StopTime = 1.5;
-  bool flagStop = false;
 
   // Lock Angle bia PID
   // Result: yaw[degree], Goal: yawLock[degree], Control: moment(define
@@ -231,7 +232,6 @@ int main(void) {
         measure[i].clear();
       }
     }
-    cout << measureY << ", " << measureR << ", " << measureL << endl;
 
     // RotaryInc
     for (int i = 0; i < 3; ++i) {
@@ -249,281 +249,298 @@ int main(void) {
       twoTableDeg = -TwoTableAngle + 270;
     }
 
-    //-----------Guess Field----------
-    deltaX = deltaY = 0;
-    for (int i = 0; i < 3; ++i) {
-      deltaX += MatrixPoint[0][i] * wheelSpeed[i];
-      deltaY += MatrixPoint[1][i] * wheelSpeed[i];
-    }
-    deltaL = hypot(deltaX, deltaY);
-    deltaA = atan2(deltaY, deltaX);
-    nowPoint[0] -= deltaL * cos(deltaA + yaw * M_PI / 180);
-    nowPoint[1] -= deltaL * sin(deltaA + yaw * M_PI / 180);
+    switch (phase) {
+    case 0: {
+      //----------Plan Root----------
+      if (Controller.press(CIRCLE)) {
+        twoTableDeg = (twoTableDeg + TwoTableAngle) % 360;
+        yawGoal = twoTableDeg;
+        goalX = TwoTableX + TwoTableR * sin(yawGoal * M_PI / 180);
+        goalY = TwoTableY - TwoTableR * cos(yawGoal * M_PI / 180);
+        flagTwoTable = true;
+        flagHome = flagMoveTable = false;
+      } else if (Controller.press(SQUARE)) {
+        goalX = firstX;
+        goalY = firstY - 300;
+        yawGoal = firstDeg;
+        twoTableDeg = -TwoTableAngle + 270;
+        flagHome = true;
+        flagTwoTable = flagMoveTable = false;
+      } else if (Controller.press(UP)) {
+        goalX = 1000 - MeasureY0;
+        goalY = MoveTableY;
+        yawGoal = -90;
+        flagHome = flagTwoTable = flagMoveTable = false;
+      } else if (Controller.press(LEFT)) {
+        goalX = 1000 - MeasureY0;
+        goalY = MoveTableY - 1000;
+        yawGoal = -90;
+        flagHome = flagTwoTable = flagMoveTable = false;
+      } else if (Controller.press(RIGHT)) {
+        goalY = MoveTableY;
+        yawGoal = -90;
+        flagMoveTable = true;
+        flagHome = flagTwoTable = false;
+      }
+      if (flagTwoTable && twoTableDeg != 270) {
+        yawGoal = atan2(TwoTableY - nowPoint[1], TwoTableX - nowPoint[0]) *
+                      180 / M_PI -
+                  90;
+      } else if (flagMoveTable) {
+        goalX = nowPoint[0] + measureY + 250 - TwoTableR;
+      }
 
-    // bia UltraSonic
-    if (flagTwoTable && !flagStop) {
-      int dummyY = measureY + 400;
-      if (twoTableDeg == 0) {
-        if (yaw_check(twoTableDeg, yaw)) {
-          if (nowPoint[0] > TwoTableX - 350 && nowPoint[0] < TwoTableX + 350) {
-            nowPoint[1] = TwoTableY - dummyY;
+      phase = 1;
+      break;
+    }
+
+    case 1: {
+      //-----------Guess Field----------
+      deltaX = deltaY = 0;
+      for (int i = 0; i < 3; ++i) {
+        deltaX += MatrixPoint[0][i] * wheelSpeed[i];
+        deltaY += MatrixPoint[1][i] * wheelSpeed[i];
+      }
+      deltaL = hypot(deltaX, deltaY);
+      deltaA = atan2(deltaY, deltaX);
+      nowPoint[0] -= deltaL * cos(deltaA + yaw * M_PI / 180);
+      nowPoint[1] -= deltaL * sin(deltaA + yaw * M_PI / 180);
+
+      // bia UltraSonic
+      if (flagTwoTable) {
+        int dummyY = measureY + 400;
+        if (twoTableDeg == 0) {
+          if (yaw_check(twoTableDeg, yaw)) {
+            if (nowPoint[0] > TwoTableX - 350 &&
+                nowPoint[0] < TwoTableX + 350) {
+              nowPoint[1] = TwoTableY - dummyY;
+            }
+            if (flagNear) {
+              if (dummyY < measureR && dummyY < measureL) {
+                nowPoint[0] = goalX;
+              } else if (dummyY < measureR) {
+                nowPoint[0] += UltraSpead * delta;
+              } else if (dummyY < measureL) {
+                nowPoint[0] -= UltraSpead * delta;
+              }
+            }
           }
-          if (flagNear) {
-            if (dummyY < measureR && dummyY < measureL) {
-              nowPoint[0] = goalX;
-            } else if (dummyY < measureR) {
-              nowPoint[0] += UltraSpead * delta;
-            } else if (dummyY < measureL) {
-              nowPoint[0] -= UltraSpead * delta;
+        } else if (twoTableDeg == 90) {
+          if (yaw_check(twoTableDeg, yaw)) {
+            if (nowPoint[1] > TwoTableY - 350 &&
+                nowPoint[1] < TwoTableY + 350) {
+              nowPoint[0] = TwoTableX + dummyY;
+            }
+            if (flagNear) {
+              if (dummyY < measureR && dummyY < measureL) {
+                nowPoint[1] = goalY;
+              } else if (dummyY < measureR) {
+                nowPoint[1] += UltraSpead * delta;
+              } else if (dummyY < measureL) {
+                nowPoint[1] -= UltraSpead * delta;
+              }
+            }
+          }
+        } else if (twoTableDeg == 180) {
+          if (yaw_check(twoTableDeg, yaw)) {
+            if (nowPoint[0] > TwoTableX - 350 &&
+                nowPoint[0] < TwoTableX + 350) {
+              nowPoint[1] = TwoTableY + dummyY;
+            }
+            if (flagNear) {
+              if (dummyY < measureR && dummyY < measureL) {
+                nowPoint[0] = goalX;
+              } else if (dummyY < measureR) {
+                nowPoint[0] -= UltraSpead * delta;
+              } else if (dummyY < measureL) {
+                nowPoint[0] += UltraSpead * delta;
+              }
+            }
+          }
+        } else if (twoTableDeg == 270) {
+          if (yaw_check(twoTableDeg, yaw)) {
+            if (nowPoint[1] > TwoTableY - 300 &&
+                nowPoint[1] < TwoTableY + 350) {
+              nowPoint[0] = TwoTableX - dummyY;
+            }
+            if (flagNear) {
+              if (dummyY < measureR && dummyY < measureL) {
+                nowPoint[1] = goalY;
+              } else if (dummyY < measureR || dummyY > measureL) {
+                nowPoint[1] -= UltraSpead * delta;
+              } else if (dummyY < measureL || dummyY > measureR) {
+                nowPoint[1] += UltraSpead * delta;
+              }
             }
           }
         }
-      } else if (twoTableDeg == 90) {
-        if (yaw_check(twoTableDeg, yaw)) {
-          if (nowPoint[1] > TwoTableY - 350 && nowPoint[1] < TwoTableY + 350) {
-            nowPoint[0] = TwoTableX + dummyY;
-          }
-          if (flagNear) {
-            if (dummyY < measureR && dummyY < measureL) {
-              nowPoint[1] = goalY;
-            } else if (dummyY < measureR) {
-              nowPoint[1] += UltraSpead * delta;
-            } else if (dummyY < measureL) {
-              nowPoint[1] -= UltraSpead * delta;
-            }
-          }
-        }
-      } else if (twoTableDeg == 180) {
-        if (yaw_check(twoTableDeg, yaw)) {
-          if (nowPoint[0] > TwoTableX - 350 && nowPoint[0] < TwoTableX + 350) {
-            nowPoint[1] = TwoTableY + dummyY;
-          }
-          if (flagNear) {
-            if (dummyY < measureR && dummyY < measureL) {
-              nowPoint[0] = goalX;
-            } else if (dummyY < measureR) {
-              nowPoint[0] -= UltraSpead * delta;
-            } else if (dummyY < measureL) {
-              nowPoint[0] += UltraSpead * delta;
-            }
-          }
-        }
-      } else if (twoTableDeg == 270) {
-        if (yaw_check(twoTableDeg, yaw)) {
-          if (nowPoint[1] > TwoTableY - 300 && nowPoint[1] < TwoTableY + 350) {
-            nowPoint[0] = TwoTableX - dummyY;
-          }
-          if (flagNear) {
-            if (dummyY < measureR && dummyY < measureL) {
-              nowPoint[1] = goalY;
-            } else if (dummyY < measureR || dummyY > measureL) {
-              nowPoint[1] -= UltraSpead * delta;
-            } else if (dummyY < measureL || dummyY > measureR) {
-              nowPoint[1] += UltraSpead * delta;
-            }
-          }
+      } else if (flagHome) {
+        if (nowPoint[1] > 1300 && nowPoint[1] < 1700 && measureL < 400) {
+          nowPoint[0] = 2750 - measureY;
         }
       }
-    } else if (flagHome) {
-      if (nowPoint[1] > 1300 && nowPoint[1] < 1700 && measureL < 400) {
-        nowPoint[0] = 2750 - measureY;
-      }
-    }
 
-    //----------Plan Root----------
-    if (Controller.press(CIRCLE)) {
-      twoTableDeg = (twoTableDeg + TwoTableAngle) % 360;
-      yawGoal = twoTableDeg;
-      goalX = TwoTableX + TwoTableR * sin(yawGoal * M_PI / 180);
-      goalY = TwoTableY - TwoTableR * cos(yawGoal * M_PI / 180);
-      flagTwoTable = true;
-      flagHome = flagMoveTable = false;
-      flagStop = false;
-    } else if (Controller.press(SQUARE)) {
-      goalX = firstX;
-      goalY = firstY - 300;
-      yawGoal = firstDeg;
-      twoTableDeg = -TwoTableAngle + 270;
-      flagHome = true;
-      flagTwoTable = flagMoveTable = false;
-      flagStop = false;
-    } else if (Controller.press(UP)) {
-      goalX = 1000 - MeasureY0;
-      goalY = MoveTableY;
-      yawGoal = -90;
-      flagHome = flagTwoTable = flagMoveTable = false;
-      flagStop = false;
-    } else if (Controller.press(LEFT)) {
-      goalX = 1000 - MeasureY0;
-      goalY = MoveTableY - 1000;
-      yawGoal = -90;
-      flagHome = flagTwoTable = flagMoveTable = false;
-      flagStop = false;
-    } else if (Controller.press(RIGHT)) {
-      goalY = MoveTableY;
-      yawGoal = -90;
-      flagMoveTable = true;
-      flagHome = flagTwoTable = false;
-      flagStop = false;
-    }
+      velocityF = hypot(goalY - nowPoint[1], goalX - nowPoint[0]);
+      angleF = atan2(goalY - nowPoint[1], goalX - nowPoint[0]);
 
-    if (flagTwoTable && twoTableDeg != 270) {
-      yawGoal =
-          atan2(TwoTableY - nowPoint[1], TwoTableX - nowPoint[0]) * 180 / M_PI -
-          90;
-    } else if (flagMoveTable) {
-      goalX = nowPoint[0] + measureY + 250 - TwoTableR;
-    }
-
-    velocityF = hypot(goalY - nowPoint[1], goalX - nowPoint[0]);
-    angleF = atan2(goalY - nowPoint[1], goalX - nowPoint[0]);
-
-    //----------Movement----------
-    // Input
-    // WheelSpeed Control from  Accel
-    if (velocityF < ErrorMin && velocityF > -ErrorMin) {
-      velocityF = 0;
-      flagNear = true;
-      if (start - stop > StopTime) {
-        flagStop = true;
-      } else {
-        flagStop = false;
-      }
-    } else if (velocityF < ErrorMax && !flagStop) {
-      velocityF = SpeedMax - ErrorReg * log(ErrorMax - velocityF + 1);
-      flagNear = true;
-      stop = start;
-    } else if (!flagStop) {
-      velocityF = SpeedMax;
-      flagNear = false;
-      stop = start;
-    } else {
-      velocityF = 0;
-    }
-
-    if (flagHome) {
+      //----------Movement----------
+      // Input
+      // WheelSpeed Control from  Accel
       if (velocityF < ErrorMin && velocityF > -ErrorMin) {
         velocityF = 0;
         flagNear = true;
-      } else if (velocityF < SpeedMax) {
-        velocityF = SpeedMax - ErrorReg * log(SpeedMax - velocityF + 1);
+      } else if (velocityF < ErrorMax) {
+        velocityF = SpeedMax - ErrorReg * log(ErrorMax - velocityF + 1);
         flagNear = true;
+        stop = start;
       } else {
-        velocityF = HomeSpead;
+        velocityF = SpeedMax;
+        flagNear = false;
+        stop = start;
       }
-    }
 
-    if (flagNear) {
-      velocityOut[0] = velocityF * cos(angleF);
-      velocityOut[1] = velocityF * sin(angleF);
-      velocityR = velocityF;
-      angleR = angleF - yaw * M_PI / 180;
-    } else {
-      velocityGoal[0] = velocityF * cos(angleF);
-      velocityGoal[1] = velocityF * sin(angleF);
-      accelStart = start;
-      for (int i = 0; i < 2; ++i) {
-        accelTime[i][0] = (AccelMax - velocityAccel[i]) / Jerk;
-        accelTime[i][1] = (fabs((double)velocityGoal[i] - velocityOut[i]) -
-                           (AccelMax + velocityAccel[i]) / 2 * accelTime[i][0] -
-                           AccelMax * AccelMax / 2 / Jerk) /
-                          AccelMax;
-        accelTime[i][2] = AccelMax / Jerk;
-        if (accelTime[i][1] < 0) {
-          accelTime[i][1] *= -1;
-          accelTime[i][0] +=
-              check((AccelMax - velocityAccel[i]) / (2 * accelTime[i][0]),
-                    AccelMax, -AccelMax * accelTime[i][1] / 2);
-          accelTime[i][2] += check(AccelMax / (2 * accelTime[i][2]), AccelMax,
-                                   -AccelMax * accelTime[i][1] / 2);
-          accelTime[i][2] += accelTime[i][0];
-          accelTime[i][1] = accelTime[i][0];
+      if (flagHome) {
+        if (velocityF < ErrorMin && velocityF > -ErrorMin) {
+          velocityF = 0;
+          flagNear = true;
+        } else if (velocityF < SpeedMax) {
+          velocityF = SpeedMax - ErrorReg * log(SpeedMax - velocityF + 1);
+          flagNear = true;
         } else {
-          accelTime[i][1] += accelTime[i][0];
-          accelTime[i][2] += accelTime[i][1];
-        }
-        if (velocityGoal[i] > velocityOut[i]) {
-          accelPolar[i] = 1;
-        } else {
-          accelPolar[i] = -1;
-        }
-
-        if (start - accelStart < accelTime[i][0]) {
-          velocityAccel[i] += Jerk * delta;
-          velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
-        } else if (start - accelStart < accelTime[i][1]) {
-          velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
-        } else if (start - accelStart <= accelTime[i][2]) {
-          velocityAccel[i] -= Jerk * delta;
-          velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
+          velocityF = HomeSpead;
         }
       }
-      velocityR = hypot(velocityOut[0], velocityOut[1]);
-      angleR = atan2(velocityOut[1], velocityOut[0]) - yaw * M_PI / 180;
-    }
 
-    // moment from Lock Angle bia PID
-    yawPrev = yawDelta;
-    yawDelta = yawGoal - yaw;
-    if (yawDelta > 180) {
-      yawDelta -= 360;
-    } else if (yawDelta <= -180) {
-      yawDelta += 360;
-    }
-    moment = yawProp * yawDelta + yawInt * yawDelta * delta +
-             yawDeff * (yawDelta - yawPrev) / delta;
-    moment *= -1;
+      if (flagNear) {
+        velocityOut[0] = velocityF * cos(angleF);
+        velocityOut[1] = velocityF * sin(angleF);
+        velocityR = velocityF;
+        angleR = angleF - yaw * M_PI / 180;
+      } else {
+        velocityGoal[0] = velocityF * cos(angleF);
+        velocityGoal[1] = velocityF * sin(angleF);
+        accelStart = start;
+        for (int i = 0; i < 2; ++i) {
+          accelTime[i][0] = (AccelMax - velocityAccel[i]) / Jerk;
+          accelTime[i][1] =
+              (fabs((double)velocityGoal[i] - velocityOut[i]) -
+               (AccelMax + velocityAccel[i]) / 2 * accelTime[i][0] -
+               AccelMax * AccelMax / 2 / Jerk) /
+              AccelMax;
+          accelTime[i][2] = AccelMax / Jerk;
+          if (accelTime[i][1] < 0) {
+            accelTime[i][1] *= -1;
+            accelTime[i][0] +=
+                check((AccelMax - velocityAccel[i]) / (2 * accelTime[i][0]),
+                      AccelMax, -AccelMax * accelTime[i][1] / 2);
+            accelTime[i][2] += check(AccelMax / (2 * accelTime[i][2]), AccelMax,
+                                     -AccelMax * accelTime[i][1] / 2);
+            accelTime[i][2] += accelTime[i][0];
+            accelTime[i][1] = accelTime[i][0];
+          } else {
+            accelTime[i][1] += accelTime[i][0];
+            accelTime[i][2] += accelTime[i][1];
+          }
+          if (velocityGoal[i] > velocityOut[i]) {
+            accelPolar[i] = 1;
+          } else {
+            accelPolar[i] = -1;
+          }
 
-    if (moment > MomentMax) {
-      moment = MomentMax;
-    } else if (moment < -MomentMax) {
-      moment = -MomentMax;
-    }
-
-    // WheelOut
-    int dummyMax = SpeedMax;
-    for (int i = 0; i < 3; ++i) {
-      wheelGoal[i] = velocityR * wheel_Func(angleR + WheelDeg[i]) + moment;
-      if (abs(wheelGoal[i]) > dummyMax) {
-        dummyMax = abs(wheelGoal[i]);
+          if (start - accelStart < accelTime[i][0]) {
+            velocityAccel[i] += Jerk * delta;
+            velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
+          } else if (start - accelStart < accelTime[i][1]) {
+            velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
+          } else if (start - accelStart <= accelTime[i][2]) {
+            velocityAccel[i] -= Jerk * delta;
+            velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
+          }
+        }
+        velocityR = hypot(velocityOut[0], velocityOut[1]);
+        angleR = atan2(velocityOut[1], velocityOut[0]) - yaw * M_PI / 180;
       }
-    }
-    wheelSlow = SpeedMax / (double)dummyMax;
 
-    for (int i = 0; i < 3; ++i) {
-      wheelGoal[i] *= wheelSlow;
-      if (0 < wheelGoal[i] && wheelGoal[i] < SpeedMin) {
-        wheelGoal[i] = 0;
-      } else if (0 > wheelGoal[i] && wheelGoal[i] > -SpeedMin) {
-        wheelGoal[i] = 0;
+      // moment from Lock Angle bia PID
+      yawPrev = yawDelta;
+      yawDelta = yawGoal - yaw;
+      if (yawDelta > 180) {
+        yawDelta -= 360;
+      } else if (yawDelta <= -180) {
+        yawDelta += 360;
       }
+      moment = yawProp * yawDelta + yawInt * yawDelta * delta +
+               yawDeff * (yawDelta - yawPrev) / delta;
+      moment *= -1;
+
+      if (moment > MomentMax) {
+        moment = MomentMax;
+      } else if (moment < -MomentMax) {
+        moment = -MomentMax;
+      }
+
+      // WheelOut
+      int dummyMax = SpeedMax;
+      for (int i = 0; i < 3; ++i) {
+        wheelGoal[i] = velocityR * wheel_Func(angleR + WheelDeg[i]) + moment;
+        if (abs(wheelGoal[i]) > dummyMax) {
+          dummyMax = abs(wheelGoal[i]);
+        }
+      }
+      wheelSlow = SpeedMax / (double)dummyMax;
+
+      for (int i = 0; i < 3; ++i) {
+        wheelGoal[i] *= wheelSlow;
+        if (0 < wheelGoal[i] && wheelGoal[i] < SpeedMin) {
+          wheelGoal[i] = 0;
+        } else if (0 > wheelGoal[i] && wheelGoal[i] > -SpeedMin) {
+          wheelGoal[i] = 0;
+        }
+      }
+
+      // Output
+      // Data
+      cout << start << ", ";
+      cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw;
+      /*
+      for (int i = 0; i < 3; ++i) {
+        cout << (int)wheelGoal[i] << ", ";
+      }
+      // cout << velocityF << ", " << velocityR << ", " << angleR;
+      // cout << velocityF << ", " << velocityR << ", " << angleR;
+      cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << endl;
+      for (int i = 0; i < 3; ++i) {
+        cout << wheelIn[i] << ",";
+      }
+      */
+      cout << endl;
+
+      for (int i = 0; i < 3; ++i) {
+        ms.send(WheelID[i], 2, wheelGoal[i]);
+      }
+
+      if (start - stop > StopTime) {
+        phase = 2;
+      }
+      break;
     }
 
-    // Output
-    // Data
-    cout << start << ", ";
-    cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw;
-    /*
-    for (int i = 0; i < 3; ++i) {
-      cout << (int)wheelGoal[i] << ", ";
-    }
-    // cout << velocityF << ", " << velocityR << ", " << angleR;
-    // cout << velocityF << ", " << velocityR << ", " << angleR;
-    cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << endl;
-    for (int i = 0; i < 3; ++i) {
-      cout << wheelIn[i] << ",";
-    }
-    */
-    cout << endl;
+    case 2: {
 
-    for (int i = 0; i < 3; ++i) {
-      ms.send(WheelID[i], 2, wheelGoal[i]);
-    }
-
-    // Shoot
-    if (flagStop) {
+      // Shoot
       ms.send(ShootRID, 10, ShootR);
       ms.send(ShootLID, 10, ShootL);
+      phase = 3;
+      break;
+    }
+
+    case 3: {
+
+      if (ms.send(ShootRID, 10, 0) && ms.send(ShootLID, 10, 0)) {
+        phase = 0;
+      }
+      break;
+    }
     }
 
     //----------Emergency----------
