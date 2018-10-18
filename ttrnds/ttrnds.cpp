@@ -88,8 +88,8 @@ int main(void) {
   // bia UltraSonic
   constexpr int MeasureCal = 5;
   constexpr int MeasureID[3] = {1, 2, 3};
-  constexpr int MeasureX0 = 200, MeasureL0 = 445, MeasureR0 = 425,
-                MeasureY0 = 500;
+  constexpr int MeasureX0 = 468, MeasureL0 = 495, MeasureR0 = 495,
+                MeasureY0 = 550;
   // constexpr double UltraReg = 1.05;
   vector<int> measure[3];
   double measureL = 0, measureR = 0, measureY = 0;
@@ -105,7 +105,7 @@ int main(void) {
   constexpr int MoveTableY = 5500;
   bool flagMoveTable = false;
 
-  constexpr int HomeSpead = 40;
+  constexpr int HomeSpead = 30;
   bool flagHome = false;
 
   // bia Field View, also yawGoal = moment
@@ -161,10 +161,10 @@ int main(void) {
   GY521 gyro(0x68, 2, 1000, 1.01);
 
   //----------IncRotary----------
-  constexpr int Range = 500 * 2;
+  constexpr int Range = 500;
   constexpr double WheelCirc = 101.6 * M_PI;
-  rotaryInc rotary[3] = {rotaryInc(27, 17, true), rotaryInc(11, 9, true),
-                         rotaryInc(10, 22, true)};
+  rotaryInc rotary[3] = {rotaryInc(27, 17, !true), rotaryInc(11, 9, !true),
+                         rotaryInc(10, 22, !true)};
   int wheelIn[3] = {};
   int wheelInPrev[3] = {};
   double wheelSpeed[3] = {};
@@ -207,9 +207,7 @@ int main(void) {
     // UltraSonic
     for (int i = 0; i < 3; ++i) {
       int dummyM = ms.send(MeasureID[i], 20, 1);
-      if (dummyM < 400) {
-        measure[i].push_back(dummyM);
-      }
+      measure[i].push_back(dummyM);
       if (measure[i].size() == MeasureCal) {
         int dummySum = 0;
         for (auto x : measure[i]) {
@@ -220,10 +218,10 @@ int main(void) {
           measureY = (double)dummySum / MeasureCal * 10 + MeasureY0;
           break;
         case 1:
-          measureL = (double)dummySum / MeasureCal * 10 + MeasureL0;
+          measureR = (double)dummySum / MeasureCal * 10 + MeasureR0;
           break;
         case 2:
-          measureR = (double)dummySum / MeasureCal * 10 + MeasureR0;
+          measureL = (double)dummySum / MeasureCal * 10 + MeasureL0;
           break;
         }
         measure[i].clear();
@@ -263,7 +261,6 @@ int main(void) {
       int dummyY = measureY + 400;
       if (twoTableDeg == 0) {
         if (yaw_check(twoTableDeg, yaw)) {
-          nowPoint[0] = 5000 - measureR;
           if (nowPoint[0] > TwoTableX - 350 && nowPoint[0] < TwoTableX + 350) {
             nowPoint[1] = TwoTableY - dummyY;
           }
@@ -273,37 +270,35 @@ int main(void) {
           if (nowPoint[1] > TwoTableY - 350 && nowPoint[1] < TwoTableY + 350) {
             nowPoint[0] = TwoTableX + dummyY;
           }
-          /*
-          if (nowPoint[0] > TwoTableX + 1000 + MeasureX0 - 200 &&
-              nowPoint[0] < TwoTableX + 1000 + MeasureX0 + 200) {
-            nowPoint[1] = measureL + 1250;
-          }
-          */
         }
       } else if (twoTableDeg == 180) {
         if (yaw_check(twoTableDeg, yaw)) {
           if (nowPoint[0] > TwoTableX - 350 && nowPoint[0] < TwoTableX + 350) {
             nowPoint[1] = TwoTableY + dummyY;
           }
-          // nowPoint[0] = 5000 - measureL;
         }
       } else if (twoTableDeg == 270) {
         if (yaw_check(twoTableDeg, yaw)) {
           if (nowPoint[1] > TwoTableY - 350 && nowPoint[1] < TwoTableY + 350) {
             nowPoint[0] = TwoTableX - dummyY;
           }
-          if (nowPoint[0] > TwoTableX - 1000 + MeasureX0 - 200 &&
-              nowPoint[0] < TwoTableX - 1000 + MeasureX0 + 200) {
-            nowPoint[1] = measureR + 1250;
+          if (flagNear && !flagStop) {
+            if (dummyY < measureR && dummyY < measureL) {
+              nowPoint[1] = goalY;
+              cout << "UltraSonic0" << endl;
+            } else if (dummyY < measureR) {
+              nowPoint[1] += 50 * delta;
+              cout << "UltraSonic1" << endl;
+            } else if (dummyY < measureL) {
+              nowPoint[1] -= 50 * delta;
+              cout << "UltraSonic2" << endl;
+            }
           }
         }
       }
     } else if (flagHome) {
       if (nowPoint[1] > 1300 && nowPoint[1] < 1700) {
         nowPoint[0] = 2750 - measureY;
-      }
-      if (nowPoint[0] > 1111 && nowPoint[0] < 1112) {
-        nowPoint[0] = 29 + 89 + measureR;
       }
     }
 
@@ -361,20 +356,23 @@ int main(void) {
     if (velocityF < ErrorMin && velocityF > -ErrorMin) {
       velocityF = 0;
       flagNear = true;
-      if (stop - start > StopTime) {
+      /*
+      if (start - stop > StopTime) {
         flagStop = true;
       } else {
         flagStop = false;
       }
+      */
     } else if (velocityF < ErrorMax && !flagStop) {
       velocityF = SpeedMax - ErrorReg * log(ErrorMax - velocityF + 1);
       flagNear = true;
-      // velocityF = ErrorSpead;
       stop = start;
     } else if (!flagStop) {
       velocityF = SpeedMax;
       flagNear = false;
       stop = start;
+    } else {
+      velocityF = 0;
     }
 
     if (flagHome) {
