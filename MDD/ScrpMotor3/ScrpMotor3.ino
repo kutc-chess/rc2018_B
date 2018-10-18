@@ -6,14 +6,16 @@ void changeID(byte new_id) {
   EEPROM.write(0, new_id);
 }
 
-ScrpSlave slave(RedePin, EEPROM.read(0), changeID);
-
 constexpr int Motor[3][3] = {
   {5, 6, 12}, 
   {10, 11, 13}, 
   {9, 3, 2}
 };
-constexpr int BaudRate = 115200, RedePin = 4;
+constexpr long BaudRate = 115200, RedePin = 4;
+constexpr int Urtrig = 9;
+constexpr int ReadPin = A0;
+
+ScrpSlave slave(RedePin, EEPROM.read(0), changeID);
 
 void setup() {
   for (int i = 0; i < 3; ++i) {
@@ -30,18 +32,19 @@ void setup() {
   slave.addCMD(20, ultraDist);
   slave.addCMD(255, safeOperation);
 
-  pinMode(URTRIG, OUTPUT);
-  digitalWrite(URTRIG, HIGH);
+  pinMode(Urtrig, OUTPUT);
+  digitalWrite(Urtrig, HIGH);
 }
 
 int dist = 0;
+int sensorValue = 0;
 unsigned long prev_time = millis();
 void loop() {
   slave.check();
   if (millis() - prev_time > 100) {
-    digitalWrite(URTRIG, LOW);
-    digitalWrite(URTRIG, HIGH);
-    sensorValue = analogRead(READPIN);
+    digitalWrite(Urtrig, LOW);
+    digitalWrite(Urtrig, HIGH);
+    sensorValue = analogRead(ReadPin);
     if (sensorValue <= 10) {
       dist = 512;
     } else {
@@ -68,13 +71,13 @@ inline boolean driveMtr(int rx_data, int num) {
     digitalWrite(Motor[num][2], LOW);
   }
   else if (0 < rx_data) {
-    digitalWrite(Motor[num][0], rx_data);
+    analogWrite(Motor[num][0], rx_data);
     analogWrite(Motor[num][1], LOW);
     digitalWrite(Motor[num][2], HIGH);
   }
   else {
     digitalWrite(Motor[num][0], LOW);
-    digitalWrite(Motor[num][1], -rx_data);
+    analogWrite(Motor[num][1], -rx_data);
     digitalWrite(Motor[num][2], HIGH);
   }
 }
