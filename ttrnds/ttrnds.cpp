@@ -86,7 +86,7 @@ int main(void) {
   //----------Shoot---------
   constexpr int ShootR = 290, ShootL = 299;
   constexpr int ShootRID = 5, ShootLID = 6;
-  int shineR, shineL;
+  int shineR = 31, shineL = 31;
   ms.send(1, 31, ShootR);
   ms.send(1, 31, ShootL);
 
@@ -133,7 +133,7 @@ int main(void) {
   //----------Movement----------
   // OutPut
   constexpr int WheelID[3] = {1, 2, 3};
-  constexpr int SpeedMax = 150;
+  constexpr int SpeedMax = 170;
   constexpr int SpeedMin = 10;
   constexpr int MomentMax = 25;
   constexpr double WheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
@@ -150,7 +150,7 @@ int main(void) {
   // WheelSpeed Control from  Accel
   // Result: velocityOut[PWM], Goal: velocityGoal[PWM],
   // Control:velocityOut[PWM]
-  constexpr double AccelMax = 50, Jerk = 150;
+  constexpr double AccelMax = 150, Jerk = 205;
   double velocityGoal[2] = {}, velocityAccel[2] = {}, velocityOut[2] = {};
   long double accelTime[2][3] = {{}, {}}, accelStart = 0;
   int accelPolar[2] = {};
@@ -179,10 +179,10 @@ int main(void) {
   GY521 gyro(0x68, 2, 1000, 1.02);
 
   //----------IncRotary----------
-  constexpr int Range = 256;
+  constexpr int Range = 256 * 2;
   constexpr double WheelCirc = 101.6 * M_PI;
-  rotaryInc rotary[3] = {rotaryInc(27, 17, !true), rotaryInc(11, 9, !true),
-                         rotaryInc(10, 22, !true)};
+  rotaryInc rotary[3] = {rotaryInc(27, 17, true), rotaryInc(11, 9, true),
+                         rotaryInc(10, 22, true)};
   int wheelIn[3] = {};
   int wheelInPrev[3] = {};
   double wheelSpeed[3] = {};
@@ -263,6 +263,9 @@ int main(void) {
   cout << "Main Start" << endl;
   gpioWrite(BCheck, 1);
   clock_gettime(CLOCK_REALTIME, &now);
+  goal = PointTable.at(pointCount);
+  ++pointCount;
+  phase = 1;
 
   // MainLoop
   UPDATELOOP(Controller,
@@ -320,7 +323,7 @@ int main(void) {
 
     switch (phase) {
     case 0: {
-      if (ms.send(ShootRID, 10, 0) && ms.send(ShootLID, 10, 0)) {
+      if (!goal.shoot || ms.send(ShootRID, 10, 0) && ms.send(ShootLID, 10, 0)) {
         goal = PointTable.at(pointCount);
         ++pointCount;
         phase = 1;
@@ -341,18 +344,13 @@ int main(void) {
       nowPoint[0] -= deltaL * cos(deltaA + yaw * M_PI / 180);
       nowPoint[1] -= deltaL * sin(deltaA + yaw * M_PI / 180);
 
-      /*
       // bia UltraSonic
       if (goal.ultra) {
-        switch (goal.table) {
-        case 0:
+        switch (goal.ultra) {
+        case 1: {
           int dummyY = measureY + 400;
           if (goal.yaw == 0) {
             if (yaw_check(goal.yaw, yaw)) {
-              if (nowPoint[0] > TwoTableX - 350 &&
-                  nowPoint[0] < TwoTableX + 350) {
-                nowPoint[1] = TwoTableY - dummyY;
-              }
               if (flagNear) {
                 if (dummyY < measureR && dummyY < measureL) {
                   nowPoint[0] = goal.x;
@@ -365,10 +363,6 @@ int main(void) {
             }
           } else if (goal.yaw == 90) {
             if (yaw_check(goal.yaw, yaw)) {
-              if (nowPoint[1] > TwoTableY - 350 &&
-                  nowPoint[1] < TwoTableY + 350) {
-                nowPoint[0] = TwoTableX + dummyY;
-              }
               if (flagNear) {
                 if (dummyY < measureR && dummyY < measureL) {
                   nowPoint[1] = goal.y;
@@ -381,10 +375,6 @@ int main(void) {
             }
           } else if (goal.yaw == 180) {
             if (yaw_check(goal.yaw, yaw)) {
-              if (nowPoint[0] > TwoTableX - 350 &&
-                  nowPoint[0] < TwoTableX + 350) {
-                nowPoint[1] = TwoTableY + dummyY;
-              }
               if (flagNear) {
                 if (dummyY < measureR && dummyY < measureL) {
                   nowPoint[0] = goal.x;
@@ -397,10 +387,6 @@ int main(void) {
             }
           } else if (goal.yaw == 270) {
             if (yaw_check(goal.yaw, yaw)) {
-              if (nowPoint[1] > TwoTableY - 300 &&
-                  nowPoint[1] < TwoTableY + 350) {
-                nowPoint[0] = TwoTableX - dummyY;
-              }
               if (flagNear) {
                 if (dummyY < measureR && dummyY < measureL) {
                   nowPoint[1] = goal.y;
@@ -414,8 +400,41 @@ int main(void) {
           }
           break;
         }
+        case 2: {
+          int dummyY = measureY + 400;
+          if (goal.yaw == 0) {
+            if (yaw_check(goal.yaw, yaw)) {
+              if (nowPoint[0] > TwoTableX - 350 &&
+                  nowPoint[0] < TwoTableX + 350) {
+                nowPoint[1] = TwoTableY - dummyY;
+              }
+            }
+          } else if (goal.yaw == 90) {
+            if (yaw_check(goal.yaw, yaw)) {
+              if (nowPoint[1] > TwoTableY - 350 &&
+                  nowPoint[1] < TwoTableY + 350) {
+                nowPoint[0] = TwoTableX + dummyY;
+              }
+            }
+          } else if (goal.yaw == 180) {
+            if (yaw_check(goal.yaw, yaw)) {
+              if (nowPoint[0] > TwoTableX - 350 &&
+                  nowPoint[0] < TwoTableX + 350) {
+                nowPoint[1] = TwoTableY + dummyY;
+              }
+            }
+          } else if (goal.yaw == 270) {
+            if (yaw_check(goal.yaw, yaw)) {
+              if (nowPoint[1] > TwoTableY - 300 &&
+                  nowPoint[1] < TwoTableY + 350) {
+                nowPoint[0] = TwoTableX - dummyY;
+              }
+            }
+          }
+          break;
+        }
+        }
       }
-      */
 
       velocityF = hypot(goal.y - nowPoint[1], goal.x - nowPoint[0]);
       angleF = atan2(goal.y - nowPoint[1], goal.x - nowPoint[0]);
@@ -497,6 +516,7 @@ int main(void) {
         velocityR = hypot(velocityOut[0], velocityOut[1]);
         angleR = atan2(velocityOut[1], velocityOut[0]) - yaw * M_PI / 180;
       }
+      cout << velocityR << endl;
 
       // moment from Lock Angle bia PID
       yawPrev = yawDelta;
@@ -565,7 +585,8 @@ int main(void) {
           ms.send(ShootLID, 10, ShootL);
         }
 
-        phase = 0
+        phase = 0;
+        cout << "Shoot" << endl;
       }
       break;
     }
