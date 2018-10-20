@@ -33,7 +33,7 @@ struct pointinfo {
 inline double wheel_Func(double rad);
 inline double check(double a, double b, double c);
 inline bool yaw_check(int goal, int now);
-constexpr double ErrorYaw = 5;
+constexpr double ErrorYaw = 3;
 inline void finish();
 
 int main(void) {
@@ -84,9 +84,9 @@ int main(void) {
   long double delta, start = 0;
 
   //----------Shoot---------
-  constexpr int ShootR = 290, ShootL = 299;
+  constexpr int ShootR = 288, ShootL = 278;
   constexpr int ShootRID = 5, ShootLID = 6;
-  int shineR = 31, shineL = 31;
+  int shineR = 31, shineL = 29;
   ms.send(1, 31, ShootR);
   ms.send(1, 31, ShootL);
 
@@ -156,7 +156,7 @@ int main(void) {
   int accelPolar[2] = {};
   bool flagNear = false;
   long double stop = 0;
-  constexpr double StopTime = 1.5;
+  constexpr double StopTime = 0.75;
 
   // Lock Angle bia PID
   // Result: yaw[degree], Goal: yawLock[degree], Control: moment(define
@@ -212,6 +212,9 @@ int main(void) {
     }
     PointTable.push_back(dummyPoint);
   }
+  struct pointinfo dummyPoint = {firstX, firstY, (int)firstDeg, false, 0, 0};
+  PointTable.push_back(dummyPoint);
+
   /*
 } else if (Controller.press(SQUARE)) {
   goalX = firstX;
@@ -323,10 +326,14 @@ int main(void) {
 
     switch (phase) {
     case 0: {
-      if (!goal.shoot || ms.send(ShootRID, 10, 0) && ms.send(ShootLID, 10, 0)) {
+      if (!goal.shoot ||
+          (ms.send(ShootRID, 10, 0) && ms.send(ShootLID, 10, 0))) {
         goal = PointTable.at(pointCount);
-        ++pointCount;
         phase = 1;
+        yawGoal = goal.yaw;
+        if (PointTable.size() != pointCount + 1) {
+          ++pointCount;
+        }
       }
 
       break;
@@ -516,9 +523,15 @@ int main(void) {
         velocityR = hypot(velocityOut[0], velocityOut[1]);
         angleR = atan2(velocityOut[1], velocityOut[0]) - yaw * M_PI / 180;
       }
-      cout << velocityR << endl;
 
       // moment from Lock Angle bia PID
+      switch (goal.table) {
+      case 1:
+        yawGoal = atan2(TwoTableY - nowPoint[1], TwoTableX - nowPoint[0]) *
+                      180 / M_PI -
+                  90;
+        break;
+      }
       yawPrev = yawDelta;
       yawDelta = yawGoal - yaw;
       if (yawDelta > 180) {
@@ -580,8 +593,8 @@ int main(void) {
         // Shoot
         if (goal.shoot) {
           ms.send(1, 30, shineR);
-          ms.send(1, 30, shineL);
           ms.send(ShootRID, 10, ShootR);
+          ms.send(1, 30, shineL);
           ms.send(ShootLID, 10, ShootL);
         }
 
