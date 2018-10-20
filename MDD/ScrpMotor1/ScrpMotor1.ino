@@ -31,10 +31,10 @@ uint32_t colors[2][2] = {
 };
 
 boolean zone, arm, table, offP, doing;
-int stage = 0, interval = 50, stepLED = 0;
+int stage = 0, interval = 50, stepLED = 0, shining = 3000;
 
-constexpr unsigned int UINT_MAX = 4294967295;
-unsigned int stageEnd = UINT_MAX;
+constexpr unsigned long ULONG_MAX = 4294967295;
+unsigned long stageEnd = ULONG_MAX;
 
 void setup() {
   for (int i = 0; i < 3; ++i) {
@@ -50,7 +50,8 @@ void setup() {
   slave.addCMD(4, driveMtr3);
   slave.addCMD(20, ultraDist);
   slave.addCMD(30, changeLEDFlag);
-  slave.addCMD(31, changeLEDInterval);
+  slave.addCMD(31, changeLEDWiping);
+  slave.addCMD(32, changeLEDShining);
   slave.addCMD(255, safeOperation);
 
   pinMode(Urtrig, OUTPUT);
@@ -83,7 +84,7 @@ void loop() {
     if (stage == 0) {
       onLED();
     }
-    if (stage == 1 && millis() - stageEnd >= 5000) {
+    if (stage == 1 && millis() - stageEnd >= shining) {
       offLED(offP);
     }
   }
@@ -148,9 +149,15 @@ boolean changeLEDFlag(int rx_data, int& tx_data) {
   return true;
 }
 
-boolean changeLEDInterval(int rx_data, int& tx_data) {
+boolean changeLEDWiping(int rx_data, int& tx_data) {
   // change LEDwipe interval(ms)
   interval = rx_data / LEDs;
+  return true;
+}
+
+boolean changeLEDShining(int rx_data, int& tx_data) {
+  // change LEDshine time(ms)
+  shining = rx_data;
   return true;
 }
 
@@ -193,7 +200,7 @@ void offLED(int pattern){
       stepLED = 0;
       doing = 0;
       stage = 0;
-      stageEnd = UINT_MAX;
+      stageEnd = ULONG_MAX;
     }
   }
 }
