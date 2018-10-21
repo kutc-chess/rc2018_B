@@ -84,23 +84,13 @@ int main(void) {
   long double delta, start = 0;
 
   //----------Shoot---------
-  constexpr int ShootR = 288, ShootL = 278;
+  constexpr int ShootR = 311, ShootL = 307;
   constexpr int ShootRID = 5, ShootLID = 6;
   int shineR = 31, shineL = 29;
   ms.send(1, 31, ShootR);
   ms.send(1, 31, ShootL);
-  ms.send(1, 32, 500);
-  ms.send(1, 32, 500);
-
-  //----------Guess Point----------
-  // Origin Point = Centerof Robot Square
-  constexpr int firstX = 410, firstY = 1530 + 89;
-  constexpr double firstDeg = -90;
-  double nowPoint[3] = {firstX, firstY, firstDeg};
-  double deltaX, deltaY, deltaL, deltaA;
-  constexpr double MatrixPoint[3][3] = {{-2.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0},
-                                        {0, 1.0 / ROOT3, -1.0 / ROOT3},
-                                        {-1.0 / 3.0, -1.0 / 3.0, -1.0 / 3.0}};
+  ms.send(1, 32, 400);
+  ms.send(1, 32, 400);
 
   // bia UltraSonic
   constexpr int MeasureCal = 7;
@@ -118,15 +108,17 @@ int main(void) {
   struct pointinfo goal;
 
   // TwoTable
-  constexpr int TwoTableX = 3000, TwoTableY = 3500, TwoTableR = 1250,
+  constexpr int TwoTableX = 3000, TwoTableY = 3500, TwoTableR = 1285,
                 TwoTableDiv = 12;
 
   // MoveTable
-  constexpr int MoveTableY = 5500;
+  constexpr int MoveTableY[3] = {5500, 6500, 7500};
+  // constexpr int MoveTableX[3] = {5500, 6500, 7500};
 
   // Home
-  constexpr int HomeMin = 20, HomeSpead = 30, HomeMax = 100;
-  constexpr double HomeReg = (HomeSpead - HomeMin) / log(HomeMax - HomeMin + 1);
+  constexpr int HomeMin = 50, HomeSpead = 15, HomeSpeadMax = 100, HomeMax = 400;
+  constexpr double HomeReg =
+      (HomeSpeadMax - HomeSpead) / log(HomeMax - HomeMin + 1);
   bool flagHome = false;
 
   // bia Field View, also yawGoal = moment
@@ -164,7 +156,7 @@ int main(void) {
   // Result: yaw[degree], Goal: yawLock[degree], Control: moment(define
   // before)[PWM]
   double yaw, yawDelta, yawPrev;
-  double yawGoal = firstDeg;
+  double yawGoal;
   constexpr double yawProp = 7.2, yawInt = 51.42, yawDeff = 0.252;
   // constexpr double yawProp = 10, yawInt = 185.4, yawDeff = 0.672;
 
@@ -206,11 +198,23 @@ int main(void) {
   gpioWrite(ZoneRed, 0);
   gpioWrite(ZoneBlue, 0);
 
+  //----------Guess Point----------
+  // Origin Point = Centerof Robot Square
+  constexpr int firstX = 490, firstY = 1530 + 89;
+  constexpr double firstDeg = -90;
+  double nowPoint[3] = {firstX * flagZone, firstY, firstDeg};
+  double deltaX, deltaY, deltaL, deltaA;
+  constexpr double MatrixPoint[3][3] = {{-2.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0},
+                                        {0, 1.0 / ROOT3, -1.0 / ROOT3},
+                                        {-1.0 / 3.0, -1.0 / 3.0, -1.0 / 3.0}};
+
   //----------Plan Root----------
+  struct pointinfo dummyPoint;
   for (int i = 0; i < TwoTableDiv; ++i) {
-    struct pointinfo dummyPoint;
-    dummyPoint.yaw = (270 + i * 360 / TwoTableDiv) % 360;
-    dummyPoint.x = TwoTableX + TwoTableR * sin(dummyPoint.yaw * M_PI / 180);
+    dummyPoint.yaw =
+        (270 + i * 360 / TwoTableDiv + 180 * (flagZone - 1) / -2) % 360;
+    dummyPoint.x =
+        TwoTableX + TwoTableR * sin(dummyPoint.yaw * M_PI / 180) * flagZone;
     dummyPoint.y = TwoTableY - TwoTableR * cos(dummyPoint.yaw * M_PI / 180);
     dummyPoint.table = 1;
     dummyPoint.ultra = 0;
@@ -221,7 +225,8 @@ int main(void) {
 
     if (dummyPoint.yaw % 90 == 0) {
       struct pointinfo dummyUltra = dummyPoint;
-      dummyUltra.x = TwoTableX + UltraSideR * sin(dummyUltra.yaw * M_PI / 180);
+      dummyUltra.x =
+          TwoTableX + UltraSideR * sin(dummyUltra.yaw * M_PI / 180) * flagZone;
       dummyUltra.y = TwoTableY - UltraSideR * cos(dummyUltra.yaw * M_PI / 180);
       dummyUltra.ultra = 1;
       dummyUltra.shoot = false;
@@ -231,17 +236,43 @@ int main(void) {
     }
     PointTable.push_back(dummyPoint);
   }
-  struct pointinfo dummyPoint = {firstX, firstY, (int)firstDeg, false, 0, 0};
-  PointTable.push_back(dummyPoint);
 
   /*
-} else if (Controller.press(SQUARE)) {
-  goalX = firstX;
-  goalY = firstY - 300;
-  yawGoal = firstDeg;
-  twoTableDeg = -TwoTableAngle + 270;
-  flagHome = true;
-  flagTwoTable = flagMoveTable = false;
+  dummyPoint = {1000 * flagZone,
+                MoveTableY[0],
+                90 + 180 * (flagZone - 1) / -2,
+                false,
+                0,
+                0};
+  dummyPoint = {(3500 - UltraSideR) * flagZone,
+                MoveTableY[0],
+                90 + 180 * (flagZone - 1) / -2,
+                false,
+                2,
+                1};
+  dummyPoint = {firstX * flagZone,
+                3500 - TwoTableR,
+                90 + 180 * (flagZone - 1) / -2,
+                true,
+                2,
+                2};
+  dummyPoint = {1000 * flagZone,
+                MoveTableY[0],
+                90 + 180 * (flagZone - 1) / -2,
+                ,
+                false,
+                0,
+                0};
+  */
+
+  dummyPoint = {firstX * flagZone,
+                firstY,
+                (int)firstDeg + 180 * (flagZone - 1) / -2,
+                false,
+                5,
+                0};
+  PointTable.push_back(dummyPoint);
+  /*
 } else if (Controller.press(UP)) {
   goalX = 1000 - MeasureY0;
   goalY = MoveTableY;
@@ -274,6 +305,8 @@ int main(void) {
     while (!gpioRead(CheckBlue)) {
     }
   }
+  ms.send(ShootRID, 10, ShootR);
+  ms.send(ShootLID, 10, ShootL);
 
   cout << "Main Start" << endl;
   gpioWrite(BCheck, 1);
@@ -335,7 +368,7 @@ int main(void) {
     //----------Reset----------
     if (gpioRead(CheckReset)) {
       gyro.resetYaw(firstDeg);
-      nowPoint[0] = firstX;
+      nowPoint[0] = firstX * flagZone;
       nowPoint[1] = firstY;
     }
 
@@ -366,95 +399,96 @@ int main(void) {
       nowPoint[1] -= deltaL * sin(deltaA + yaw * M_PI / 180);
 
       // bia UltraSonic
-      if (goal.ultra) {
-        switch (goal.ultra) {
-        case 1: {
-          int dummyY = measureY + 400;
-          if (goal.yaw == 0) {
-            if (yaw_check(goal.yaw, yaw)) {
-              if (flagNear) {
-                if (dummyY < measureR && dummyY < measureL) {
-                  nowPoint[0] = goal.x;
-                } else if (dummyY < measureR) {
-                  nowPoint[0] += UltraSpead * delta;
-                } else if (dummyY < measureL) {
-                  nowPoint[0] -= UltraSpead * delta;
-                }
-              }
-            }
-          } else if (goal.yaw == 90) {
-            if (yaw_check(goal.yaw, yaw)) {
-              if (flagNear) {
-                if (dummyY < measureR && dummyY < measureL) {
-                  nowPoint[1] = goal.y;
-                } else if (dummyY < measureR) {
-                  nowPoint[1] += UltraSpead * delta;
-                } else if (dummyY < measureL) {
-                  nowPoint[1] -= UltraSpead * delta;
-                }
-              }
-            }
-          } else if (goal.yaw == 180) {
-            if (yaw_check(goal.yaw, yaw)) {
-              if (flagNear) {
-                if (dummyY < measureR && dummyY < measureL) {
-                  nowPoint[0] = goal.x;
-                } else if (dummyY < measureR) {
-                  nowPoint[0] -= UltraSpead * delta;
-                } else if (dummyY < measureL) {
-                  nowPoint[0] += UltraSpead * delta;
-                }
-              }
-            }
-          } else if (goal.yaw == 270) {
-            if (yaw_check(goal.yaw, yaw)) {
-              if (flagNear) {
-                if (dummyY < measureR && dummyY < measureL) {
-                  nowPoint[1] = goal.y;
-                } else if (dummyY < measureR) {
-                  nowPoint[1] -= UltraSpead * delta;
-                } else if (dummyY < measureL) {
-                  nowPoint[1] += UltraSpead * delta;
-                }
+      switch (goal.ultra) {
+      case 1: {
+        int dummyY = measureY + 400;
+        if (goal.yaw == 0) {
+          if (yaw_check(goal.yaw, yaw)) {
+            if (flagNear) {
+              if (dummyY < measureR && dummyY < measureL) {
+                nowPoint[0] = goal.x;
+              } else if (dummyY < measureR) {
+                nowPoint[0] += UltraSpead * delta;
+              } else if (dummyY < measureL) {
+                nowPoint[0] -= UltraSpead * delta;
               }
             }
           }
-          break;
-        }
-        case 2: {
-          int dummyY = measureY + 400;
-          if (goal.yaw == 0) {
-            if (yaw_check(goal.yaw, yaw)) {
-              if (nowPoint[0] > TwoTableX - 350 &&
-                  nowPoint[0] < TwoTableX + 350) {
-                nowPoint[1] = TwoTableY - dummyY;
-              }
-            }
-          } else if (goal.yaw == 90) {
-            if (yaw_check(goal.yaw, yaw)) {
-              if (nowPoint[1] > TwoTableY - 350 &&
-                  nowPoint[1] < TwoTableY + 350) {
-                nowPoint[0] = TwoTableX + dummyY;
-              }
-            }
-          } else if (goal.yaw == 180) {
-            if (yaw_check(goal.yaw, yaw)) {
-              if (nowPoint[0] > TwoTableX - 350 &&
-                  nowPoint[0] < TwoTableX + 350) {
-                nowPoint[1] = TwoTableY + dummyY;
-              }
-            }
-          } else if (goal.yaw == 270) {
-            if (yaw_check(goal.yaw, yaw)) {
-              if (nowPoint[1] > TwoTableY - 300 &&
-                  nowPoint[1] < TwoTableY + 350) {
-                nowPoint[0] = TwoTableX - dummyY;
+        } else if (goal.yaw == 90) {
+          if (yaw_check(goal.yaw, yaw)) {
+            if (flagNear) {
+              if (dummyY < measureR && dummyY < measureL) {
+                nowPoint[1] = goal.y;
+              } else if (dummyY < measureR) {
+                nowPoint[1] += UltraSpead * delta;
+              } else if (dummyY < measureL) {
+                nowPoint[1] -= UltraSpead * delta;
               }
             }
           }
-          break;
+        } else if (goal.yaw == 180) {
+          if (yaw_check(goal.yaw, yaw)) {
+            if (flagNear) {
+              if (dummyY < measureR && dummyY < measureL) {
+                nowPoint[0] = goal.x;
+              } else if (dummyY < measureR) {
+                nowPoint[0] -= UltraSpead * delta;
+              } else if (dummyY < measureL) {
+                nowPoint[0] += UltraSpead * delta;
+              }
+            }
+          }
+        } else if (goal.yaw == 270) {
+          if (yaw_check(goal.yaw, yaw)) {
+            if (flagNear) {
+              if (dummyY < measureR && dummyY < measureL) {
+                nowPoint[1] = goal.y;
+              } else if (dummyY < measureR) {
+                nowPoint[1] -= UltraSpead * delta;
+              } else if (dummyY < measureL) {
+                nowPoint[1] += UltraSpead * delta;
+              }
+            }
+          }
         }
+        break;
+      }
+      case 2: {
+        int dummyY = measureY + 400;
+        if (goal.yaw == 0) {
+          if (yaw_check(goal.yaw, yaw)) {
+            if (nowPoint[0] > TwoTableX - 350 &&
+                nowPoint[0] < TwoTableX + 350) {
+              nowPoint[1] = TwoTableY - dummyY;
+            }
+          }
+        } else if (goal.yaw == 90) {
+          if (yaw_check(goal.yaw, yaw)) {
+            if (nowPoint[1] > TwoTableY - 350 &&
+                nowPoint[1] < TwoTableY + 350) {
+              nowPoint[0] = TwoTableX + dummyY;
+            }
+          }
+        } else if (goal.yaw == 180) {
+          if (yaw_check(goal.yaw, yaw)) {
+            if (nowPoint[0] > TwoTableX - 350 &&
+                nowPoint[0] < TwoTableX + 350) {
+              nowPoint[1] = TwoTableY + dummyY;
+            }
+          }
+        } else if (goal.yaw == 270) {
+          if (yaw_check(goal.yaw, yaw)) {
+            if (nowPoint[1] > TwoTableY - 300 &&
+                nowPoint[1] < TwoTableY + 350) {
+              nowPoint[0] = TwoTableX - dummyY;
+            }
+          }
         }
+        break;
+      }
+      case 5: {
+        break;
+      }
       }
 
       velocityF = hypot(goal.y - nowPoint[1], goal.x - nowPoint[0]);
@@ -476,15 +510,18 @@ int main(void) {
         stop = start;
       }
 
-      if (flagHome) {
-        if (velocityF < ErrorMin && velocityF > -ErrorMin) {
+      if (goal.table == 5) {
+        if (velocityF < HomeMin && velocityF > -HomeMin) {
           velocityF = 0;
           flagNear = true;
-        } else if (velocityF < SpeedMax) {
-          velocityF = SpeedMax - ErrorReg * log(SpeedMax - velocityF + 1);
+        } else if (velocityF < HomeMax) {
+          velocityF = HomeSpeadMax - HomeReg * log(HomeMax - velocityF + 1);
           flagNear = true;
+          stop = start;
         } else {
-          velocityF = HomeSpead;
+          velocityF = HomeSpeadMax;
+          flagNear = false;
+          stop = start;
         }
       }
 
@@ -541,9 +578,10 @@ int main(void) {
       // moment from Lock Angle bia PID
       switch (goal.table) {
       case 1:
-        yawGoal = atan2(TwoTableY - nowPoint[1], TwoTableX - nowPoint[0]) *
+        yawGoal = atan2(TwoTableY - nowPoint[1],
+                        (TwoTableX - nowPoint[0]) * flagZone) *
                       180 / M_PI -
-                  90;
+                  90 + 180 * (flagZone - 1) / -2;
         break;
       }
       yawPrev = yawDelta;
@@ -604,16 +642,23 @@ int main(void) {
       }
 
       if (start - stop > StopTime) {
-        // Shoot
-        if (goal.shoot) {
-          ms.send(1, 30, shineR);
+        phase = 2;
+      }
+      break;
+    }
+    case 2: {
+      // Shoot
+      if (goal.shoot) {
+        if (ms.send(ShootLID, 10, 0) == 2) {
           ms.send(ShootRID, 10, ShootR);
-          ms.send(1, 30, shineL);
+          ms.send(1, 30, shineR);
+        } else if (ms.send(ShootRID, 10, 0) == 2) {
           ms.send(ShootLID, 10, ShootL);
+          ms.send(1, 30, shineL);
+          phase = 0;
         }
-
+      } else {
         phase = 0;
-        cout << "Shoot" << endl;
       }
       break;
     }
