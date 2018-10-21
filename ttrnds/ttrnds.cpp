@@ -52,13 +52,13 @@ int main(void) {
   constexpr int BCheck = 13;
   gpioSetMode(BCheck, PI_OUTPUT);
 
-  constexpr int CheckRed = 8, CheckBlue = 26;
+  constexpr int CheckRed = 26, CheckBlue = 8;
   gpioSetMode(CheckRed, PI_INPUT);
   gpioSetPullUpDown(CheckRed, PI_PUD_DOWN);
   gpioSetMode(CheckBlue, PI_INPUT);
   gpioSetPullUpDown(CheckBlue, PI_PUD_DOWN);
 
-  constexpr int ZoneRed = 5, ZoneBlue = 20;
+  constexpr int ZoneRed = 20, ZoneBlue = 5;
   bool flagZone;
   gpioSetMode(ZoneRed, PI_OUTPUT);
   gpioWrite(ZoneRed, 0);
@@ -89,6 +89,8 @@ int main(void) {
   int shineR = 31, shineL = 29;
   ms.send(1, 31, ShootR);
   ms.send(1, 31, ShootL);
+  ms.send(1, 32, 500);
+  ms.send(1, 32, 500);
 
   //----------Guess Point----------
   // Origin Point = Centerof Robot Square
@@ -123,7 +125,7 @@ int main(void) {
   constexpr int MoveTableY = 5500;
 
   // Home
-  constexpr int HomeMin = 20, HomeSpead = 50, HomeMax = 100;
+  constexpr int HomeMin = 20, HomeSpead = 30, HomeMax = 100;
   constexpr double HomeReg = (HomeSpead - HomeMin) / log(HomeMax - HomeMin + 1);
   bool flagHome = false;
 
@@ -133,7 +135,7 @@ int main(void) {
   //----------Movement----------
   // OutPut
   constexpr int WheelID[3] = {1, 2, 3};
-  constexpr int SpeedMax = 170;
+  constexpr int SpeedMax = 200;
   constexpr int SpeedMin = 10;
   constexpr int MomentMax = 25;
   constexpr double WheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
@@ -186,6 +188,23 @@ int main(void) {
   int wheelIn[3] = {};
   int wheelInPrev[3] = {};
   double wheelSpeed[3] = {};
+
+  //----------Zone Check----------
+  gpioWrite(ZoneRed, 1);
+  gpioWrite(ZoneBlue, 1);
+  while (1) {
+    if (gpioRead(CheckRed)) {
+      flagZone = 1;
+      cout << "Red" << endl;
+      break;
+    } else if (gpioRead(CheckBlue)) {
+      flagZone = -1;
+      cout << "Blue" << endl;
+      break;
+    }
+  }
+  gpioWrite(ZoneRed, 0);
+  gpioWrite(ZoneBlue, 0);
 
   //----------Plan Root----------
   for (int i = 0; i < TwoTableDiv; ++i) {
@@ -245,27 +264,21 @@ int main(void) {
   goalX = nowPoint[0] + measureY + 250 - TwoTableR;
 }
 */
-
-  //----------Zone Check----------
-  gpioWrite(ZoneRed, 1);
-  gpioWrite(ZoneBlue, 1);
-  while (1) {
-    if (gpioRead(CheckRed)) {
-      flagZone = 1;
-      gpioWrite(ZoneBlue, 0);
-      break;
-    } else if (gpioRead(CheckBlue)) {
-      flagZone = -1;
-      gpioWrite(ZoneRed, 0);
-      break;
+  sleep(1);
+  if (flagZone == 1) {
+    gpioWrite(ZoneRed, 1);
+    while (!gpioRead(CheckRed)) {
+    }
+  } else if (flagZone == -1) {
+    gpioWrite(ZoneBlue, 1);
+    while (!gpioRead(CheckBlue)) {
     }
   }
-  sleep(1);
-  gyro.start(firstDeg);
 
   cout << "Main Start" << endl;
   gpioWrite(BCheck, 1);
   clock_gettime(CLOCK_REALTIME, &now);
+  gyro.start(firstDeg);
   goal = PointTable.at(pointCount);
   ++pointCount;
   phase = 1;
@@ -288,7 +301,9 @@ int main(void) {
     // UltraSonic
     for (int i = 0; i < 3; ++i) {
       int dummyM = ms.send(MeasureID[i], 20, 1);
-      measure[i].push_back(dummyM);
+      if (dummyM > 10) {
+        measure[i].push_back(dummyM);
+      }
       if (measure[i].size() == MeasureCal) {
         int dummySum = 0;
         for (auto x : measure[i]) {
@@ -326,12 +341,11 @@ int main(void) {
 
     switch (phase) {
     case 0: {
-      if (!goal.shoot ||
-          (ms.send(ShootRID, 10, 0) && ms.send(ShootLID, 10, 0))) {
+      if ((ms.send(ShootRID, 10, 0) == 2) && (ms.send(ShootLID, 10, 0) == 2)) {
         goal = PointTable.at(pointCount);
         phase = 1;
         yawGoal = goal.yaw;
-        if (PointTable.size() != pointCount + 1) {
+        if ((int)PointTable.size() != pointCount + 1) {
           ++pointCount;
         }
       }
