@@ -1,4 +1,4 @@
-//立ルンです, MainLoop from 112
+//立ルンです, Ma/nLoop from 112
 #include "/home/pi/PigpioMS/PigpioMS.hpp"
 #include "/home/pi/RasPiDS3/RasPiDS3.hpp"
 #include "/home/pi/Sensor/GY521/GY521.hpp"
@@ -214,8 +214,7 @@ int main(void) {
   //----------Plan Root----------
   struct pointinfo dummyPoint;
   for (int i = 0; i < TwoTableDiv - 2; ++i) {
-    dummyPoint.yaw =
-        (270 + i * 360 / TwoTableDiv + 180 * (flagZone - 1) / -2) % 360;
+    dummyPoint.yaw = 270 + i * 360 / TwoTableDiv % 360;
     dummyPoint.x =
         TwoTableX + TwoTableR * sin(dummyPoint.yaw * M_PI / 180) * flagZone;
     dummyPoint.y = TwoTableY - TwoTableR * cos(dummyPoint.yaw * M_PI / 180);
@@ -247,12 +246,7 @@ int main(void) {
     PointTable.push_back(dummyPoint);
   }
 
-  dummyPoint = {1000 * flagZone,
-                MoveTableY[0] - 1000,
-                180 + 180 * (flagZone - 1) / -2,
-                false,
-                0,
-                0};
+  dummyPoint = {1000 * flagZone, MoveTableY[0] - 1000, 180, false, 0, 0};
   PointTable.push_back(dummyPoint);
   /*
   dummyPoint = {(MoveTableX[0] - MoveTableR[0]) * flagZone,
@@ -271,12 +265,7 @@ int main(void) {
   PointTable.push_back(dummyPoint);
   */
 
-  dummyPoint = {firstX * flagZone,
-                firstY - 500,
-                (int)firstDeg + 180 * (flagZone - 1) / -2,
-                false,
-                5,
-                0};
+  dummyPoint = {firstX * flagZone, firstY - 500, (int)firstDeg, false, 5, 0};
   PointTable.push_back(dummyPoint);
 
   sleep(1);
@@ -295,7 +284,7 @@ int main(void) {
   cout << "Main Start" << endl;
   gpioWrite(BCheck, 1);
   clock_gettime(CLOCK_REALTIME, &now);
-  gyro.start(firstDeg * flagZone);
+  gyro.start(firstDeg);
   phase = 0;
 
   // MainLoop
@@ -310,7 +299,7 @@ int main(void) {
 
     // GY521
     gyro.updata();
-    yaw = gyro.yaw;
+    yaw = gyro.yaw * flagZone;
 
     // UltraSonic
     for (int i = 0; i < 3; ++i) {
@@ -390,11 +379,11 @@ int main(void) {
         if (yaw_check(goal.yaw, yaw) && flagNear) {
           int index = (goal.yaw / 90) % 2;
           if (dummyY < measureR && dummyY < measureL) {
-            nowPoint[index] = goal.x * !index + goal.y * index;
+            nowPoint[index] = goal.x * !index * flagZone + goal.y * index;
           } else if (dummyY < measureR) {
-            nowPoint[index] += UltraSpead * delta;
+            nowPoint[index] += UltraSpead * delta * (!index * flagZone + index);
           } else if (dummyY < measureL) {
-            nowPoint[index] -= UltraSpead * delta;
+            nowPoint[index] -= UltraSpead * delta * (!index * flagZone + index;)
           }
         }
       }
@@ -406,11 +395,12 @@ int main(void) {
           int signe = goal.yaw / 180 - !(goal.yaw / 180);
           if (yaw_check(goal.yaw, yaw)) {
             if (nowPoint[index] >
-                    TwoTableX * !index + TwoTableY * index - 350 &&
+                    TwoTableX * !index * flagZone + TwoTableY * index - 350 &&
                 nowPoint[index] <
-                    TwoTableX * !index + TwoTableY * index + 350) {
-              nowPoint[!index] = (TwoTableX - signe * dummyY) * index +
-                                 (TwoTableY + signe * dummyY) * !index;
+                    TwoTableX * !index * flagZone + TwoTableY * index + 350) {
+              nowPoint[!index] =
+                  (TwoTableX - signe * dummyY) * index * flagZone +
+                  (TwoTableY + signe * dummyY) * !index;
             }
           }
           break;
@@ -420,7 +410,7 @@ int main(void) {
           if (yaw_check(goal.yaw, yaw)) {
             if (nowPoint[1] > TwoTableY - 200 &&
                 nowPoint[1] < TwoTableY + 200) {
-              nowPoint[0] = MoveTableX - dummyY;
+              nowPoint[0] = (MoveTableX - dummyY) * flagZone;
             }
           }
           break;
@@ -520,9 +510,8 @@ int main(void) {
       switch (goal.table) {
       case 1:
         yawGoal = atan2(TwoTableY - nowPoint[1],
-                        (TwoTableX - nowPoint[0]) * flagZone) *
-                      180 / M_PI -
-                  90 + 180 * (flagZone - 1) / -2;
+                        (-TwoTableX - nowPoint[0]) * flagZone) *
+                  180 / M_PI;
         break;
       }
       yawPrev = yawDelta;
@@ -534,7 +523,7 @@ int main(void) {
       }
       moment = yawProp * yawDelta + yawInt * yawDelta * delta +
                yawDeff * (yawDelta - yawPrev) / delta;
-      moment *= -1;
+      moment *= -1 * flagZone;
 
       if (moment > MomentMax) {
         moment = MomentMax;
