@@ -263,7 +263,7 @@ int main(void) {
                 2};
   PointTable.push_back(dummyPoint);
   dummyPoint = {1000 * flagZone,
-                MoveTableY[0],
+                MoveTableY[0] - 1000,
                 -90 + 180 * (flagZone - 1) / -2,
                 false,
                 0,
@@ -387,88 +387,30 @@ int main(void) {
       switch (goal.ultra) {
       case 1: {
         int dummyY = measureY + 400;
-        if (goal.yaw == 0) {
-          if (yaw_check(goal.yaw, yaw)) {
-            if (flagNear) {
-              if (dummyY < measureR && dummyY < measureL) {
-                nowPoint[0] = goal.x;
-              } else if (dummyY < measureR) {
-                nowPoint[0] += UltraSpead * delta;
-              } else if (dummyY < measureL) {
-                nowPoint[0] -= UltraSpead * delta;
-              }
-            }
-          }
-        } else if (goal.yaw == 90) {
-          if (yaw_check(goal.yaw, yaw)) {
-            if (flagNear) {
-              if (dummyY < measureR && dummyY < measureL) {
-                nowPoint[1] = goal.y;
-              } else if (dummyY < measureR) {
-                nowPoint[1] += UltraSpead * delta;
-              } else if (dummyY < measureL) {
-                nowPoint[1] -= UltraSpead * delta;
-              }
-            }
-          }
-        } else if (goal.yaw == 180) {
-          if (yaw_check(goal.yaw, yaw)) {
-            if (flagNear) {
-              if (dummyY < measureR && dummyY < measureL) {
-                nowPoint[0] = goal.x;
-              } else if (dummyY < measureR) {
-                nowPoint[0] -= UltraSpead * delta;
-              } else if (dummyY < measureL) {
-                nowPoint[0] += UltraSpead * delta;
-              }
-            }
-          }
-        } else if (goal.yaw == 270) {
-          if (yaw_check(goal.yaw, yaw)) {
-            if (flagNear) {
-              if (dummyY < measureR && dummyY < measureL) {
-                nowPoint[1] = goal.y;
-              } else if (dummyY < measureR) {
-                nowPoint[1] -= UltraSpead * delta;
-              } else if (dummyY < measureL) {
-                nowPoint[1] += UltraSpead * delta;
-              }
-            }
+        if (yaw_check(goal.yaw, yaw) && flagNear) {
+          int index = (goal.yaw / 90) % 2;
+          if (dummyY < measureR && dummyY < measureL) {
+            nowPoint[index] = goal.x * !index + goal.y * index;
+          } else if (dummyY < measureR) {
+            nowPoint[index] += UltraSpead * delta;
+          } else if (dummyY < measureL) {
+            nowPoint[index] -= UltraSpead * delta;
           }
         }
-        break;
       }
       case 2: {
         switch (goal.table) {
         case 1: {
           int dummyY = measureY + 400;
-          if (goal.yaw == 0) {
-            if (yaw_check(goal.yaw, yaw)) {
-              if (nowPoint[0] > TwoTableX - 350 &&
-                  nowPoint[0] < TwoTableX + 350) {
-                nowPoint[1] = TwoTableY - dummyY;
-              }
-            }
-          } else if (goal.yaw == 90) {
-            if (yaw_check(goal.yaw, yaw)) {
-              if (nowPoint[1] > TwoTableY - 350 &&
-                  nowPoint[1] < TwoTableY + 350) {
-                nowPoint[0] = TwoTableX + dummyY;
-              }
-            }
-          } else if (goal.yaw == 180) {
-            if (yaw_check(goal.yaw, yaw)) {
-              if (nowPoint[0] > TwoTableX - 350 &&
-                  nowPoint[0] < TwoTableX + 350) {
-                nowPoint[1] = TwoTableY + dummyY;
-              }
-            }
-          } else if (goal.yaw == 270) {
-            if (yaw_check(goal.yaw, yaw)) {
-              if (nowPoint[1] > TwoTableY - 300 &&
-                  nowPoint[1] < TwoTableY + 350) {
-                nowPoint[0] = TwoTableX - dummyY;
-              }
+          int index = (goal.yaw / 90) % 2;
+          int signe = goal.yaw / 180 - !(goal.yaw / 180);
+          if (yaw_check(goal.yaw, yaw)) {
+            if (nowPoint[index] >
+                    TwoTableX * !index + TwoTableY * index - 350 &&
+                nowPoint[index] <
+                    TwoTableX * !index + TwoTableY * index + 350) {
+              nowPoint[!index] = (TwoTableX - signe * dummyY) * index +
+                                 (TwoTableY + signe * dummyY) * !index;
             }
           }
           break;
@@ -476,12 +418,12 @@ int main(void) {
         case 2: {
           int dummyY = measureY + 250;
           if (yaw_check(goal.yaw, yaw)) {
-            if (nowPoint[0] > TwoTableX - 200 &&
-                nowPoint[0] < TwoTableX + 200) {
-              nowPoint[1] = TwoTableY - dummyY;
+            if (nowPoint[1] > TwoTableY - 200 &&
+                nowPoint[1] < TwoTableY + 200) {
+              nowPoint[0] = MoveTableX - dummyY;
             }
-            break;
           }
+          break;
         }
         }
       }
@@ -660,8 +602,8 @@ int main(void) {
         }
       } else {
         if (goal.ultra == 1) {
-          nowPoint[0] -= 90 * fabs(cos(goal.yaw));
-          nowPoint[1] += 90 * fabs(sin(goal.yaw));
+          nowPoint[0] -= 90 * fabs(cos(goal.yaw * M_PI / 180));
+          nowPoint[1] += 90 * fabs(sin(goal.yaw * M_PI / 180));
         }
         phase = 0;
       }
