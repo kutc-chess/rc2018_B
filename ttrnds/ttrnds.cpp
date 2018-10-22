@@ -11,7 +11,6 @@
 #include <time.h>
 #include <unistd.h>
 #include <vector>
-#define ROOT2 (1.41421356)
 #define ROOT3 (1.7320508)
 #define M_PI_3 (M_PI / 3)
 #define M_PI_6 (M_PI / 6)
@@ -37,7 +36,6 @@ constexpr double ErrorYaw = 3;
 inline void finish();
 
 int main(void) {
-  DualShock3 Controller;
   MotorSerial ms;
   // MDD通信セットアップ
   try {
@@ -51,6 +49,9 @@ int main(void) {
   // Check LED
   constexpr int BCheck = 13;
   gpioSetMode(BCheck, PI_OUTPUT);
+  constexpr int Finish = 13;
+  gpioSetMode(Finish, PI_INPUT);
+  gpioSetPullUpDown(CheckRed, PI_PUD_DOWN);
 
   constexpr int CheckRed = 26, CheckBlue = 8;
   gpioSetMode(CheckRed, PI_INPUT);
@@ -246,14 +247,14 @@ int main(void) {
     PointTable.push_back(dummyPoint);
   }
 
-  /*
   dummyPoint = {1000 * flagZone,
-                MoveTableY[0],
-                -90 + 180 * (flagZone - 1) / -2,
+                MoveTableY[0] - 1000,
+                180 + 180 * (flagZone - 1) / -2,
                 false,
                 0,
                 0};
   PointTable.push_back(dummyPoint);
+  /*
   dummyPoint = {(MoveTableX[0] - MoveTableR[0]) * flagZone,
                 MoveTableY[0],
                 -90 + 180 * (flagZone - 1) / -2,
@@ -298,8 +299,7 @@ int main(void) {
   phase = 0;
 
   // MainLoop
-  UPDATELOOP(Controller,
-             !(Controller.button(START) && Controller.button(CROSS))) {
+  while (1) {
     //----------Sensor----------
     // time
     prev = now;
@@ -363,6 +363,8 @@ int main(void) {
         phase = 1;
         if ((int)PointTable.size() != pointCount + 1) {
           ++pointCount;
+        } else if (gpioRead(Finish)) {
+          goto Finish;
         }
       }
 
@@ -665,18 +667,6 @@ int main(void) {
       }
       break;
     }
-    }
-
-    //----------Emergency----------
-    if (Controller.press(SELECT)) {
-      UPDATELOOP(Controller, !Controller.press(SELECT)) {
-        ms.send(255, 255, 0);
-        if (Controller.button(START) && Controller.button(CROSS)) {
-          // FinishSequence
-          restart = -1;
-          goto finish;
-        }
-      }
     }
   }
 finish:
