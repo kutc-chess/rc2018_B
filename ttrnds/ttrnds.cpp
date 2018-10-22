@@ -277,29 +277,7 @@ int main(void) {
                 5,
                 0};
   PointTable.push_back(dummyPoint);
-  /*
-} else if (Controller.press(UP)) {
-  goalX = 1000 - MeasureY0;
-  goalY = MoveTableY;
-  yawGoal = -90;
-  flagHome = flagTwoTable = flagMoveTable = false;
-} else if (Controller.press(LEFT)) {
-  goalX = 1000 - MeasureY0;
-  goalY = MoveTableY - 1000;
-  yawGoal = -90;
-  flagHome = flagTwoTable = flagMoveTable = false;
-} else if (Controller.press(RIGHT)) {
-  goalY = MoveTableY;
-  yawGoal = -90;
-  flagMoveTable = true;
-  flagHome = flagTwoTable = false;
-}
-*/
-  /*
-} else if (flagMoveTable) {
-  goalX = nowPoint[0] + measureY + 250 - TwoTableR;
-}
-*/
+
   sleep(1);
   if (flagZone == 1) {
     gpioWrite(ZoneRed, 1);
@@ -373,6 +351,8 @@ int main(void) {
       gyro.resetYaw(firstDeg);
       nowPoint[0] = firstX * flagZone;
       nowPoint[1] = firstY;
+      phase = 0;
+      pointCount = 0;
     }
 
     switch (phase) {
