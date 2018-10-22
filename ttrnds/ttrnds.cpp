@@ -191,6 +191,8 @@ int main(void) {
     if (gpioRead(CheckRed)) {
       flagZone = 1;
       cout << "Red" << endl;
+      --shineR;
+      --shineL;
       break;
     } else if (gpioRead(CheckBlue)) {
       flagZone = -1;
