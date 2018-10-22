@@ -49,9 +49,6 @@ int main(void) {
   // Check LED
   constexpr int BCheck = 13;
   gpioSetMode(BCheck, PI_OUTPUT);
-  constexpr int Finish = 13;
-  gpioSetMode(Finish, PI_INPUT);
-  gpioSetPullUpDown(CheckRed, PI_PUD_DOWN);
 
   constexpr int CheckRed = 26, CheckBlue = 8;
   gpioSetMode(CheckRed, PI_INPUT);
@@ -60,7 +57,7 @@ int main(void) {
   gpioSetPullUpDown(CheckBlue, PI_PUD_DOWN);
 
   constexpr int ZoneRed = 20, ZoneBlue = 5;
-  bool flagZone;
+  int flagZone = 0;
   gpioSetMode(ZoneRed, PI_OUTPUT);
   gpioWrite(ZoneRed, 0);
   gpioSetMode(ZoneBlue, PI_OUTPUT);
@@ -173,7 +170,7 @@ int main(void) {
   gpioWrite(LEDCal, 0);
   sleep(1);
   //----------Gyro----------
-  GY521 gyro(0x68, 2, 1000, 1.02);
+  GY521 gyro(0x68, 2, 1000, 1.01);
 
   //----------IncRotary----------
   constexpr int Range = 256 * 2;
@@ -216,9 +213,9 @@ int main(void) {
   //----------Plan Root----------
   struct pointinfo dummyPoint;
   for (int i = 0; i < TwoTableDiv - 2; ++i) {
-    dummyPoint.yaw = 270 + i * 360 / TwoTableDiv % 360;
+    dummyPoint.yaw = (270 + i * 360 / TwoTableDiv) % 360;
     dummyPoint.x =
-        TwoTableX + TwoTableR * sin(dummyPoint.yaw * M_PI / 180) * flagZone;
+        (TwoTableX + TwoTableR * sin(dummyPoint.yaw * M_PI / 180)) * flagZone;
     dummyPoint.y = TwoTableY - TwoTableR * cos(dummyPoint.yaw * M_PI / 180);
     dummyPoint.table = 1;
     dummyPoint.ultra = 0;
@@ -236,8 +233,7 @@ int main(void) {
     if (dummyPoint.yaw % 90 == 0) {
       struct pointinfo dummyUltra = dummyPoint;
       dummyUltra.x =
-          (TwoTableX + UltraSideR * sin(dummyUltra.yaw * M_PI / 180)) *
-          flagZone;
+          TwoTableX + UltraSideR * sin(dummyUltra.yaw * M_PI / 180) * flagZone;
       dummyUltra.y = TwoTableY - UltraSideR * cos(dummyUltra.yaw * M_PI / 180);
       dummyUltra.ultra = 1;
       dummyUltra.shoot = false;
@@ -245,6 +241,8 @@ int main(void) {
 
       dummyPoint.ultra = 2;
     }
+    cout << dummyPoint.x << ", " << dummyPoint.y << ", " << dummyPoint.yaw
+         << endl;
     PointTable.push_back(dummyPoint);
   }
 
@@ -286,7 +284,7 @@ int main(void) {
   cout << "Main Start" << endl;
   gpioWrite(BCheck, 1);
   clock_gettime(CLOCK_REALTIME, &now);
-  gyro.start(firstDeg);
+  gyro.start(firstDeg * flagZone);
   phase = 0;
 
   // MainLoop
@@ -344,6 +342,9 @@ int main(void) {
       nowPoint[1] = firstY;
       phase = 0;
       pointCount = 0;
+      if (!gpioRead(CheckCal)) {
+        goto finish;
+      }
     }
 
     switch (phase) {
@@ -354,8 +355,6 @@ int main(void) {
         phase = 1;
         if ((int)PointTable.size() != pointCount + 1) {
           ++pointCount;
-        } else if (gpioRead(Finish)) {
-          goto Finish;
         }
       }
 
@@ -371,8 +370,8 @@ int main(void) {
       }
       deltaL = hypot(deltaX, deltaY);
       deltaA = atan2(deltaY, deltaX);
-      nowPoint[0] -= deltaL * cos(deltaA + yaw * M_PI / 180);
-      nowPoint[1] -= deltaL * sin(deltaA + yaw * M_PI / 180);
+      nowPoint[0] -= deltaL * cos(deltaA + flagZone * yaw * M_PI / 180);
+      nowPoint[1] -= deltaL * sin(deltaA + flagZone * yaw * M_PI / 180);
 
       // bia UltraSonic
       switch (goal.ultra) {
@@ -380,12 +379,15 @@ int main(void) {
         int dummyY = measureY + 400;
         if (yaw_check(goal.yaw, yaw) && flagNear) {
           int index = (goal.yaw / 90) % 2;
+          int signe = goal.yaw / 180 - !(goal.yaw / 180);
           if (dummyY < measureR && dummyY < measureL) {
             nowPoint[index] = goal.x * !index * flagZone + goal.y * index;
           } else if (dummyY < measureR) {
-            nowPoint[index] += UltraSpead * delta * (!index * flagZone + index);
+            nowPoint[index] +=
+                UltraSpead * delta * (!index * flagZone + index) * -signe;
           } else if (dummyY < measureL) {
-            nowPoint[index] -= UltraSpead * delta * (!index * flagZone + index;)
+            nowPoint[index] -=
+                UltraSpead * delta * (!index * flagZone + index) * -signe;
           }
         }
       }
@@ -412,7 +414,7 @@ int main(void) {
           if (yaw_check(goal.yaw, yaw)) {
             if (nowPoint[1] > TwoTableY - 200 &&
                 nowPoint[1] < TwoTableY + 200) {
-              nowPoint[0] = (MoveTableX - dummyY) * flagZone;
+              nowPoint[0] = (MoveTableX[0] - dummyY) * flagZone;
             }
           }
           break;
@@ -425,7 +427,7 @@ int main(void) {
       }
 
       velocityF = hypot(goal.y - nowPoint[1], goal.x - nowPoint[0]);
-      angleF = atan2(goal.y - nowPoint[1], goal.x - nowPoint[0]);
+      angleF = atan2(goal.y - nowPoint[1], goal.x - nowPoint[0]) * flagZone;
 
       //----------Movement----------
       // Input
@@ -512,8 +514,9 @@ int main(void) {
       switch (goal.table) {
       case 1:
         yawGoal = atan2(TwoTableY - nowPoint[1],
-                        (-TwoTableX - nowPoint[0]) * flagZone) *
-                  180 / M_PI;
+                        (TwoTableX - nowPoint[0]) * flagZone) *
+                      180 / M_PI -
+                  90;
         break;
       }
       yawPrev = yawDelta;
@@ -592,10 +595,12 @@ int main(void) {
           phase = 0;
         }
       } else {
+        /*
         if (goal.ultra == 1) {
-          nowPoint[0] -= 90 * fabs(cos(goal.yaw * M_PI / 180));
-          nowPoint[1] += 90 * fabs(sin(goal.yaw * M_PI / 180));
+          nowPoint[0] -= 90 * cos(goal.yaw * M_PI / 180);
+          nowPoint[1] -= 90 * sin(goal.yaw * M_PI / 180);
         }
+        */
         phase = 0;
       }
       break;
