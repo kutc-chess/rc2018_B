@@ -595,12 +595,6 @@ int main(void) {
           phase = 0;
         }
       } else {
-        /*
-        if (goal.ultra == 1) {
-          nowPoint[0] -= 90 * cos(goal.yaw * M_PI / 180);
-          nowPoint[1] -= 90 * sin(goal.yaw * M_PI / 180);
-        }
-        */
         phase = 0;
       }
       break;
