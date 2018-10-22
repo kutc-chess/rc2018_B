@@ -127,7 +127,7 @@ int main(void) {
   //----------Movement----------
   // OutPut
   constexpr int WheelID[3] = {1, 2, 3};
-  constexpr int SpeedMax = 220;
+  constexpr int SpeedMax = 100;
   constexpr int SpeedMin = 10;
   constexpr int MomentMax = 25;
   constexpr double WheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
@@ -233,10 +233,13 @@ int main(void) {
     if (dummyPoint.yaw % 90 == 0) {
       struct pointinfo dummyUltra = dummyPoint;
       dummyUltra.x =
-          TwoTableX + UltraSideR * sin(dummyUltra.yaw * M_PI / 180) * flagZone;
+          (TwoTableX + UltraSideR * sin(dummyUltra.yaw * M_PI / 180)) *
+          flagZone;
       dummyUltra.y = TwoTableY - UltraSideR * cos(dummyUltra.yaw * M_PI / 180);
       dummyUltra.ultra = 1;
       dummyUltra.shoot = false;
+      cout << dummyUltra.x << ", " << dummyUltra.y << ", " << dummyUltra.yaw
+           << endl;
       PointTable.push_back(dummyUltra);
 
       dummyPoint.ultra = 2;
@@ -380,14 +383,26 @@ int main(void) {
         if (yaw_check(goal.yaw, yaw) && flagNear) {
           int index = (goal.yaw / 90) % 2;
           int signe = goal.yaw / 180 - !(goal.yaw / 180);
-          if (dummyY < measureR && dummyY < measureL) {
-            nowPoint[index] = goal.x * !index * flagZone + goal.y * index;
-          } else if (dummyY < measureR) {
-            nowPoint[index] +=
-                UltraSpead * delta * (!index * flagZone + index) * -signe;
-          } else if (dummyY < measureL) {
-            nowPoint[index] -=
-                UltraSpead * delta * (!index * flagZone + index) * -signe;
+          if (flagZone == 1) {
+            if (dummyY < measureR && dummyY < measureL) {
+              nowPoint[index] = goal.x * !index + goal.y * index;
+            } else if (dummyY < measureR) {
+              nowPoint[index] +=
+                  UltraSpead * delta * (!index * flagZone + index) * -signe;
+            } else if (dummyY < measureL) {
+              nowPoint[index] -=
+                  UltraSpead * delta * (!index * flagZone + index) * -signe;
+            }
+          } else {
+            if (dummyY < measureR && dummyY < measureL) {
+              nowPoint[index] = goal.x * !index + goal.y * index;
+            } else if (dummyY < measureL) {
+              nowPoint[index] +=
+                  UltraSpead * delta * (!index * flagZone + index) * -signe;
+            } else if (dummyY < measureR) {
+              nowPoint[index] -=
+                  UltraSpead * delta * (!index * flagZone + index) * -signe;
+            }
           }
         }
       }
@@ -427,7 +442,7 @@ int main(void) {
       }
 
       velocityF = hypot(goal.y - nowPoint[1], goal.x - nowPoint[0]);
-      angleF = atan2(goal.y - nowPoint[1], goal.x - nowPoint[0]) * flagZone;
+      angleF = atan2(goal.y - nowPoint[1], goal.x - nowPoint[0]);
 
       //----------Movement----------
       // Input
@@ -464,7 +479,7 @@ int main(void) {
         velocityOut[0] = velocityF * cos(angleF);
         velocityOut[1] = velocityF * sin(angleF);
         velocityR = velocityF;
-        angleR = angleF - yaw * M_PI / 180;
+        angleR = angleF - flagZone * yaw * M_PI / 180;
       } else {
         velocityGoal[0] = velocityF * cos(angleF);
         velocityGoal[1] = velocityF * sin(angleF);
@@ -507,16 +522,18 @@ int main(void) {
           }
         }
         velocityR = hypot(velocityOut[0], velocityOut[1]);
-        angleR = atan2(velocityOut[1], velocityOut[0]) - yaw * M_PI / 180;
+        angleR =
+            atan2(velocityOut[1], velocityOut[0]) - flagZone * yaw * M_PI / 180;
       }
 
       // moment from Lock Angle bia PID
       switch (goal.table) {
       case 1:
         yawGoal = atan2(TwoTableY - nowPoint[1],
-                        (TwoTableX - nowPoint[0]) * flagZone) *
+                        (flagZone * TwoTableX - nowPoint[0])) *
                       180 / M_PI -
                   90;
+        yawGoal *= flagZone;
         break;
       }
       yawPrev = yawDelta;
@@ -559,12 +576,11 @@ int main(void) {
       // Data
       cout << start << ", ";
       cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw;
+      cout << velocityF << ", " << velocityR << ", " << angleR;
       /*
       for (int i = 0; i < 3; ++i) {
         cout << (int)wheelGoal[i] << ", ";
       }
-      // cout << velocityF << ", " << velocityR << ", " << angleR;
-      // cout << velocityF << ", " << velocityR << ", " << angleR;
       cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << endl;
       for (int i = 0; i < 3; ++i) {
         cout << wheelIn[i] << ",";
