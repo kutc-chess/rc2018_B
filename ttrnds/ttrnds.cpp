@@ -212,7 +212,7 @@ int main(void) {
 
   //----------Plan Root----------
   struct pointinfo dummyPoint;
-  for (int i = 0; i < TwoTableDiv; ++i) {
+  for (int i = 0; i < TwoTableDiv - 2; ++i) {
     dummyPoint.yaw =
         (270 + i * 360 / TwoTableDiv + 180 * (flagZone - 1) / -2) % 360;
     dummyPoint.x =
@@ -221,7 +221,7 @@ int main(void) {
     dummyPoint.table = 1;
     dummyPoint.ultra = 0;
 
-    if (((i + 1) / 2) % 2) {
+    if ((i / 2) % 2 == 0) {
       dummyPoint.shoot = true;
     } else {
       dummyPoint.shoot = false;
