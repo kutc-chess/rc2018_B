@@ -1,4 +1,4 @@
-//立ルンです, Ma/nLoop from 112
+//立ルンです, Ma/nLoop from 294
 #include "/home/pi/PigpioMS/PigpioMS.hpp"
 #include "/home/pi/RasPiDS3/RasPiDS3.hpp"
 #include "/home/pi/Sensor/GY521/GY521.hpp"
@@ -106,17 +106,20 @@ int main(void) {
   int pointCount = 0;
   struct pointinfo goal;
 
+  // FixTable
+  constexpr int FixTableX = 3000, FixTableY = 1500;
+
   // TwoTable
   constexpr int TwoTableX = 3000, TwoTableY = 3500, TwoTableR = 1285,
                 TwoTableDiv = 12;
 
   // MoveTable
   constexpr int MoveTableY[3] = {5500, 6500, 7500};
-  int MoveTableX[3] = {5500, 5500, 5500};
+  int MoveTableX[3] = {3500, 3500, 3500};
   constexpr int MoveTableR[3] = {1200, 1200, 1200};
 
   // Home
-  constexpr int HomeMin = 20, HomeSpead = 15, HomeSpeadMax = 120, HomeMax = 400;
+  constexpr int HomeMin = 20, HomeSpead = 15, HomeSpeadMax = 140, HomeMax = 400;
   constexpr double HomeReg =
       (HomeSpeadMax - HomeSpead) / log(HomeMax - HomeMin + 1);
   bool flagHome = false;
@@ -127,7 +130,7 @@ int main(void) {
   //----------Movement----------
   // OutPut
   constexpr int WheelID[3] = {1, 2, 3};
-  constexpr int SpeedMax = 100;
+  constexpr int SpeedMax = 170;
   constexpr int SpeedMin = 10;
   constexpr int MomentMax = 25;
   constexpr double WheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
@@ -340,7 +343,7 @@ int main(void) {
 
     //----------Reset----------
     if (gpioRead(CheckReset)) {
-      gyro.resetYaw(firstDeg);
+      gyro.resetYaw(firstDeg * flagZone);
       nowPoint[0] = firstX * flagZone;
       nowPoint[1] = firstY;
       phase = 0;
@@ -387,21 +390,9 @@ int main(void) {
             if (dummyY < measureR && dummyY < measureL) {
               nowPoint[index] = goal.x * !index + goal.y * index;
             } else if (dummyY < measureR) {
-              nowPoint[index] +=
-                  UltraSpead * delta * (!index * flagZone + index) * -signe;
+              nowPoint[index] += UltraSpead * delta * (!index + index) * -signe;
             } else if (dummyY < measureL) {
-              nowPoint[index] -=
-                  UltraSpead * delta * (!index * flagZone + index) * -signe;
-            }
-          } else {
-            if (dummyY < measureR && dummyY < measureL) {
-              nowPoint[index] = goal.x * !index + goal.y * index;
-            } else if (dummyY < measureL) {
-              nowPoint[index] +=
-                  UltraSpead * delta * (!index * flagZone + index) * -signe;
-            } else if (dummyY < measureR) {
-              nowPoint[index] -=
-                  UltraSpead * delta * (!index * flagZone + index) * -signe;
+              nowPoint[index] -= UltraSpead * delta * (!index + index) * -signe;
             }
           }
         }
@@ -426,7 +417,7 @@ int main(void) {
         }
         case 2: {
           int dummyY = measureY + 250;
-          if (yaw_check(goal.yaw, yaw)) {
+          if (yaw_check(goal.yaw, yaw) && flagNear) {
             if (nowPoint[1] > TwoTableY - 200 &&
                 nowPoint[1] < TwoTableY + 200) {
               nowPoint[0] = (MoveTableX[0] - dummyY) * flagZone;
@@ -437,6 +428,12 @@ int main(void) {
         }
       }
       case 5: {
+        if (yaw_check(goal.yaw, yaw) && flagNear) {
+          int dummyY = measureL + 250;
+          if (nowPoint[1] > FixTableY - 200 && nowPoint[1] < FixTableY + 200) {
+            nowPoint[0] = (FixTableX - dummyY) * flagZone;
+          }
+        }
         break;
       }
       }
@@ -446,7 +443,7 @@ int main(void) {
 
       //----------Movement----------
       // Input
-      // WheelSpeed Control from  Accel
+      // WheelSpeed Control from Accel
       if (velocityF < ErrorMin && velocityF > -ErrorMin) {
         velocityF = 0;
         flagNear = true;
