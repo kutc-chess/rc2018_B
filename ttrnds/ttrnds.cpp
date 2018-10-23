@@ -676,6 +676,7 @@ finish:
   gpioWrite(ZoneBlue, 0);
   gpioWrite(LEDCal, 0);
   gpioWrite(LEDReset, 0);
+  CSth.detach();
   return restart;
 }
 
