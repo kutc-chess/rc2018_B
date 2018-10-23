@@ -107,7 +107,7 @@ int main(void) {
   struct pointinfo goal;
 
   // TwoTable
-  constexpr int TwoTableX = 3000, TwoTableY = 3500, TwoTableR = 1285,
+  constexpr int TwoTableX = 3000, TwoTableY = 3500, TwoTableR = 1295,
                 TwoTableDiv = 12;
 
   // MoveTable
