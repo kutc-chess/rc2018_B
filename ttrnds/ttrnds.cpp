@@ -1,13 +1,18 @@
-//立ルンです, Ma/nLoop from 112
+//立ルンです, Ma/nLoop from 294
+#include "/home/pi/Image_recognition_akashi2018/filerw.hpp"
 #include "/home/pi/PigpioMS/PigpioMS.hpp"
 #include "/home/pi/RasPiDS3/RasPiDS3.hpp"
 #include "/home/pi/Sensor/GY521/GY521.hpp"
 #include "/home/pi/Sensor/RotaryInc/RotaryInc.hpp"
+#include <algorithm>
 #include <cmath>
+#include <future>
 #include <iostream>
 #include <pigpio.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string>
+#include <thread>
 #include <time.h>
 #include <unistd.h>
 #include <vector>
@@ -19,6 +24,7 @@ using namespace std;
 using namespace RPDS3;
 using namespace RPMS;
 using namespace RPGY521;
+using namespace FRW;
 
 struct pointinfo {
   int x;
@@ -34,6 +40,8 @@ inline double check(double a, double b, double c);
 inline bool yaw_check(int goal, int now);
 constexpr double ErrorYaw = 3;
 inline void finish();
+void move_plan(promise<vector> p, int MoveTableX[3],
+               constexpr int MoveTableY[3], constexpr int MoveTableR[3]);
 
 int main(void) {
   MotorSerial ms;
@@ -103,8 +111,11 @@ int main(void) {
 
   //----------Plan Root----------
   vector<struct pointinfo> PointTable;
-  int pointCount = 0;
+  int pointCount = 0, PointTwoTableFin;
   struct pointinfo goal;
+
+  // FixTable
+  constexpr int FixTableX = 3000, FixTableY = 1500;
 
   // TwoTable
   constexpr int TwoTableX = 3000, TwoTableY = 3500, TwoTableR = 1295,
@@ -112,11 +123,14 @@ int main(void) {
 
   // MoveTable
   constexpr int MoveTableY[3] = {5500, 6500, 7500};
-  int MoveTableX[3] = {5500, 5500, 5500};
+  int MoveTableX[3] = {3500, 3500, 3500};
   constexpr int MoveTableR[3] = {1200, 1200, 1200};
+  promise<vector> CSp;
+  furute<vector> CSf;
+  thread CSth(move_plan, move(p), MoveTableX, MoveTableY, MoveTableR);
 
   // Home
-  constexpr int HomeMin = 20, HomeSpead = 15, HomeSpeadMax = 120, HomeMax = 400;
+  constexpr int HomeMin = 20, HomeSpead = 15, HomeSpeadMax = 140, HomeMax = 400;
   constexpr double HomeReg =
       (HomeSpeadMax - HomeSpead) / log(HomeMax - HomeMin + 1);
   bool flagHome = false;
@@ -127,7 +141,7 @@ int main(void) {
   //----------Movement----------
   // OutPut
   constexpr int WheelID[3] = {1, 2, 3};
-  constexpr int SpeedMax = 100;
+  constexpr int SpeedMax = 170;
   constexpr int SpeedMin = 10;
   constexpr int MomentMax = 25;
   constexpr double WheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
@@ -212,7 +226,7 @@ int main(void) {
 
   //----------Plan Root----------
   struct pointinfo dummyPoint;
-  for (int i = 0; i < TwoTableDiv - 2; ++i) {
+  for (int i = 0; i < TwoTableDiv - 2; PointTwoTableFin = i, ++i) {
     dummyPoint.yaw = (270 + i * 360 / TwoTableDiv) % 360;
     dummyPoint.x =
         (TwoTableX + TwoTableR * sin(dummyPoint.yaw * M_PI / 180)) * flagZone;
@@ -238,38 +252,23 @@ int main(void) {
       dummyUltra.y = TwoTableY - UltraSideR * cos(dummyUltra.yaw * M_PI / 180);
       dummyUltra.ultra = 1;
       dummyUltra.shoot = false;
-      cout << dummyUltra.x << ", " << dummyUltra.y << ", " << dummyUltra.yaw
-           << endl;
       PointTable.push_back(dummyUltra);
 
       dummyPoint.ultra = 2;
     }
-    cout << dummyPoint.x << ", " << dummyPoint.y << ", " << dummyPoint.yaw
-         << endl;
     PointTable.push_back(dummyPoint);
   }
 
-  dummyPoint = {1000 * flagZone, MoveTableY[0] - 1000, 180, false, 0, 0};
+  dummyPoint = {firstX * flagZone, MoveTableY[0] - 1000, 180, false, 0, 0};
   PointTable.push_back(dummyPoint);
-  /*
-  dummyPoint = {(MoveTableX[0] - MoveTableR[0]) * flagZone,
-                MoveTableY[0],
-                -90 + 180 * (flagZone - 1) / -2,
-                true,
-                2,
-                2};
-  PointTable.push_back(dummyPoint);
-  dummyPoint = {1000 * flagZone,
-                MoveTableY[0] - 1000,
-                -90 + 180 * (flagZone - 1) / -2,
-                false,
-                0,
-                0};
-  PointTable.push_back(dummyPoint);
-  */
 
-  dummyPoint = {firstX * flagZone, firstY - 500, (int)firstDeg, false, 5, 0};
+  dummyPoint = {
+      (firstX - 100) * flagZone, firstY - 500, (int)firstDeg, false, 5, 0};
   PointTable.push_back(dummyPoint);
+
+  for (auto p : PointTable) {
+    cout << p.x << p.y << p.yaw;
+  }
 
   sleep(1);
   if (flagZone == 1) {
@@ -340,7 +339,7 @@ int main(void) {
 
     //----------Reset----------
     if (gpioRead(CheckReset)) {
-      gyro.resetYaw(firstDeg);
+      gyro.resetYaw(firstDeg * flagZone);
       nowPoint[0] = firstX * flagZone;
       nowPoint[1] = firstY;
       phase = 0;
@@ -353,6 +352,11 @@ int main(void) {
     switch (phase) {
     case 0: {
       if ((ms.send(ShootRID, 10, 0) == 2) && (ms.send(ShootLID, 10, 0) == 2)) {
+        if (PointTwoTableFin + 1 == pointCount) {
+          vector<struct pointinfo> dummy = uture.get();
+          PointTable.insert(PointTable.begin() + PointTwoTableFin + 1,
+                            dummy.begin(), dummy.end());
+        }
         goal = PointTable.at(pointCount);
         yawGoal = goal.yaw;
         phase = 1;
@@ -387,21 +391,9 @@ int main(void) {
             if (dummyY < measureR && dummyY < measureL) {
               nowPoint[index] = goal.x * !index + goal.y * index;
             } else if (dummyY < measureR) {
-              nowPoint[index] +=
-                  UltraSpead * delta * (!index * flagZone + index) * -signe;
+              nowPoint[index] += UltraSpead * delta * (!index + index) * -signe;
             } else if (dummyY < measureL) {
-              nowPoint[index] -=
-                  UltraSpead * delta * (!index * flagZone + index) * -signe;
-            }
-          } else {
-            if (dummyY < measureR && dummyY < measureL) {
-              nowPoint[index] = goal.x * !index + goal.y * index;
-            } else if (dummyY < measureL) {
-              nowPoint[index] +=
-                  UltraSpead * delta * (!index * flagZone + index) * -signe;
-            } else if (dummyY < measureR) {
-              nowPoint[index] -=
-                  UltraSpead * delta * (!index * flagZone + index) * -signe;
+              nowPoint[index] -= UltraSpead * delta * (!index + index) * -signe;
             }
           }
         }
@@ -426,7 +418,7 @@ int main(void) {
         }
         case 2: {
           int dummyY = measureY + 250;
-          if (yaw_check(goal.yaw, yaw)) {
+          if (yaw_check(goal.yaw, yaw) && flagNear) {
             if (nowPoint[1] > TwoTableY - 200 &&
                 nowPoint[1] < TwoTableY + 200) {
               nowPoint[0] = (MoveTableX[0] - dummyY) * flagZone;
@@ -437,6 +429,12 @@ int main(void) {
         }
       }
       case 5: {
+        if (yaw_check(goal.yaw, yaw) && flagNear) {
+          int dummyY = measureL + 250;
+          if (nowPoint[1] > FixTableY - 200 && nowPoint[1] < FixTableY + 200) {
+            nowPoint[0] = (FixTableX - dummyY) * flagZone;
+          }
+        }
         break;
       }
       }
@@ -446,7 +444,7 @@ int main(void) {
 
       //----------Movement----------
       // Input
-      // WheelSpeed Control from  Accel
+      // WheelSpeed Control from Accel
       if (velocityF < ErrorMin && velocityF > -ErrorMin) {
         velocityF = 0;
         flagNear = true;
@@ -662,4 +660,27 @@ inline bool yaw_check(int goal, int now) {
     return 1;
   }
   return 0;
+}
+
+void move_plan(promise<vector> p, int MoveTableX[3],
+               constexpr int MoveTableY[3], constexpr int MoveTableR[3]) {
+  string CSFile("CS.txt");
+  while (readRed(CSFile, MoveTableX) == -1) {
+    sleep(1);
+  }
+  struct pointinfo dummy;
+  vector<struct pointinfo> send;
+
+  dummy = {firstx * flagzone, MoveTableY[0] - 1000, 180, false, 0, 0};
+  send.push_back(dummy);
+
+  dummy = {(MoveTableX[0] - MoveTableR[3]) * flagzone,
+           MoveTabley[0],
+           -90,
+           true,
+           2,
+           2};
+  send.push_back(dummy);
+
+  p.set_value(send)
 }
