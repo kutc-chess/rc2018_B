@@ -33,7 +33,7 @@ void setup() {
 }
 
 constexpr int Spin = 30;
-constexpr int DelaySolenoid = 250, DelayLoad = 500, DelayArm = 1000, DelayHand = 550;
+constexpr int DelaySolenoid = 250, DelayLoad = 500, DelayArm = 1000, DelayHand = 475;
 int delayShoot = 310;
 constexpr int LimitFall = A3, LimitCatch = A2, LimitArm = A1, Solenoid[2] = {10, 11}, Arm = 3, Hand = 9, Magnet = 7;
 unsigned long now = millis();
@@ -169,7 +169,7 @@ boolean checker(int rx_data, int& tx_data) {
   if (order) {
     delayShoot = rx_data;
   }
-  tx_data = shootable;
+  tx_data = shootable + 1;
   return true;
 }
 

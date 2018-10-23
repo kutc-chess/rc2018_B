@@ -7,25 +7,13 @@ void changeID(byte new_id) {
 }
 
 constexpr int Motor[3][3] = {
-  {5, 6, 12}, 
-  {10, 11, 13}, 
+  {5, 6, 12},
+  {10, 11, 13},
   {9, 3, 2}
 };
 constexpr long BaudRate = 115200, RedePin = 4;
 
 ScrpSlave slave(RedePin, EEPROM.read(0), changeID);
-
-constexpr int Spin = 30;
-constexpr int DelaySolenoid = 250, DelayLoad = 500, DelayArm = 1000, DelayHand = 550;
-int delayShoot = 310;
-constexpr int LimitFall = A3, LimitCatch = A2, LimitArm = A1, Solenoid[2] = {10, 11}, Arm = 3, Hand = 9, Magnet = 7;
-unsigned long now = millis();
-unsigned long prevUp = now, prevDown = now, prevArm = now, prevHand = now, prevShoot = now;
-boolean loadable = false;
-boolean flagFB = false, flagHand = false;
-boolean shootable = true, order = false;
-boolean nowCatch = false, prevCatch = false;
-int phase = 6;
 
 void setup() {
   for (int i = 0; i < 3; ++i) {
@@ -36,7 +24,6 @@ void setup() {
     pinMode(Motor[i][2], OUTPUT);
   }
   pinMode(RedePin, OUTPUT);
-  pinMode(Magnet, OUTPUT);
   Serial.begin(BaudRate);
   slave.addCMD(2, driveMtr1);
   slave.addCMD(3, driveMtr2);
@@ -44,6 +31,18 @@ void setup() {
   slave.addCMD(10, checker);
   slave.addCMD(11, calibration);
 }
+
+constexpr int Spin = 30;
+constexpr int DelaySolenoid = 250, DelayLoad = 500, DelayArm = 1000, DelayHand = 500;
+int delayShoot = 310;
+constexpr int LimitFall = A3, LimitCatch = A2, LimitArm = A1, Solenoid[2] = {10, 11}, Arm = 3, Hand = 9, Magnet = 7;
+unsigned long now = millis();
+unsigned long prevUp = now, prevDown = now, prevArm = now, prevHand = now, prevShoot = now;
+boolean loadable = false;
+boolean flagFB = false, flagHand = false;
+boolean shootable = true, order = false;
+boolean nowCatch = false, prevCatch = false;
+int phase = 6;
 
 void loop() {
   slave.check();
@@ -146,7 +145,6 @@ inline boolean driveMtr(int rx_data, int num) {
     analogWrite(Motor[num][1], -rx_data);
     digitalWrite(Motor[num][2], HIGH);
   }
-  return true;
 }
 
 boolean driveMtr1(int rx_data, int& tx_data) {
@@ -171,7 +169,8 @@ boolean checker(int rx_data, int& tx_data) {
   if (order) {
     delayShoot = rx_data;
   }
-  return shootable;
+  tx_data = shootable + 1;
+  return true;
 }
 
 boolean calibration(int rx_data, int& tx_data) {
