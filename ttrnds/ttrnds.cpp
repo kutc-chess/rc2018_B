@@ -40,8 +40,8 @@ inline double check(double a, double b, double c);
 inline bool yaw_check(int goal, int now);
 constexpr double ErrorYaw = 3;
 inline void finish();
-void move_plan(promise<vector> p, int MoveTableX[3],
-               constexpr int MoveTableY[3], constexpr int MoveTableR[3]);
+void move_plan(promise<vector<struct pointinfo>> p, int MoveTableX[3],
+               int MoveTableY[3], int MoveTableR[3], int *flagZone);
 
 int main(void) {
   MotorSerial ms;
@@ -90,7 +90,7 @@ int main(void) {
   long double delta, start = 0;
 
   //----------Shoot---------
-  constexpr int ShootR = 311, ShootL = 307;
+  constexpr int ShootR = 300, ShootL = 303;
   constexpr int ShootRID = 5, ShootLID = 6;
   int shineR = 31, shineL = 29;
   bool flagShootR = false;
@@ -118,19 +118,21 @@ int main(void) {
   constexpr int FixTableX = 3000, FixTableY = 1500;
 
   // TwoTable
-  constexpr int TwoTableX = 3000, TwoTableY = 3500, TwoTableR = 1295,
-                TwoTableDiv = 12;
+  constexpr int TwoTableX = 3000, TwoTableY = 3500, TwoTableR = 1295;
+  // constexpr int TwoTableDiv = 12;
+  constexpr int TwoTableDiv = 8;
 
   // MoveTable
   constexpr int MoveTableY[3] = {5500, 6500, 7500};
   int MoveTableX[3] = {3500, 3500, 3500};
   constexpr int MoveTableR[3] = {1200, 1200, 1200};
-  promise<vector> CSp;
-  furute<vector> CSf;
-  thread CSth(move_plan, move(p), MoveTableX, MoveTableY, MoveTableR);
+  promise<vector<struct pointinfo>> CSp;
+  future<vector<pointinfo>> CSf = CSp.get_future();
+  // thread CSth(move_plan, move(CSp), MoveTableX, MoveTableY, MoveTable,
+  // &flagZone);
 
   // Home
-  constexpr int HomeMin = 20, HomeSpead = 15, HomeSpeadMax = 140, HomeMax = 400;
+  constexpr int HomeMin = 20, HomeSpead = 15, HomeSpeadMax = 170, HomeMax = 400;
   constexpr double HomeReg =
       (HomeSpeadMax - HomeSpead) / log(HomeMax - HomeMin + 1);
   bool flagHome = false;
@@ -167,7 +169,8 @@ int main(void) {
   constexpr double StopTime = 0.5;
 
   // Lock Angle bia PID
-  // Result: yaw[degree], Goal: yawLock[degree], Control: moment(define
+  // Result: yaw[degree], Goal: yawLock[degree], Control:
+  // moment(define
   // before)[PWM]
   double yaw, yawDelta, yawPrev;
   double yawGoal;
@@ -226,7 +229,47 @@ int main(void) {
 
   //----------Plan Root----------
   struct pointinfo dummyPoint;
+  // Turn Table
+  /*
   for (int i = 0; i < TwoTableDiv - 2; PointTwoTableFin = i, ++i) {
+    dummyPoint.yaw = (270 + i * 360 / TwoTableDiv) % 360;
+    dummyPoint.x =
+        (TwoTableX + TwoTableR * sin(dummyPoint.yaw * M_PI / 180)) *
+  flagZone;
+    dummyPoint.y = TwoTableY - TwoTableR * cos(dummyPoint.yaw * M_PI
+  / 180);
+    dummyPoint.table = 1;
+    dummyPoint.ultra = 0;
+
+    if ((i / 2) % 2 == 0) {
+      dummyPoint.shoot = true;
+    } else {
+      dummyPoint.shoot = false;
+    }
+
+    if (i == 0) {
+      dummyPoint.table = 0;
+    }
+
+    if (dummyPoint.yaw % 90 == 0) {
+      struct pointinfo dummyUltra = dummyPoint;
+      dummyUltra.x =
+          (TwoTableX + UltraSideR * sin(dummyUltra.yaw * M_PI /
+  180)) *
+          flagZone;
+      dummyUltra.y = TwoTableY - UltraSideR * cos(dummyUltra.yaw *
+  M_PI / 180);
+      dummyUltra.ultra = 1;
+      dummyUltra.shoot = false;
+      PointTable.push_back(dummyUltra);
+
+      dummyPoint.ultra = 2;
+    }
+    PointTable.push_back(dummyPoint);
+  }
+  */
+  // Square Table
+  for (int i = 0; i < TwoTableDiv; PointTwoTableFin = i, ++i) {
     dummyPoint.yaw = (270 + i * 360 / TwoTableDiv) % 360;
     dummyPoint.x =
         (TwoTableX + TwoTableR * sin(dummyPoint.yaw * M_PI / 180)) * flagZone;
@@ -234,7 +277,7 @@ int main(void) {
     dummyPoint.table = 1;
     dummyPoint.ultra = 0;
 
-    if ((i / 2) % 2 == 0) {
+    if (i % 2 == 0) {
       dummyPoint.shoot = true;
     } else {
       dummyPoint.shoot = false;
@@ -256,6 +299,18 @@ int main(void) {
 
       dummyPoint.ultra = 2;
     }
+    if ((dummyPoint.yaw / 90) % 2 == 1) {
+      PointTable.push_back(dummyPoint);
+
+      dummyPoint.yaw = (270 + i * 360 / TwoTableDiv) % 360;
+      dummyPoint.x =
+          (TwoTableX + (TwoTableR + 100) * sin(dummyPoint.yaw * M_PI / 180)) *
+          flagZone;
+      dummyPoint.y =
+          TwoTableY - (TwoTableR + 100) * cos(dummyPoint.yaw * M_PI / 180);
+      dummyPoint.table = 1;
+      dummyPoint.ultra = 2;
+    }
     PointTable.push_back(dummyPoint);
   }
 
@@ -267,7 +322,7 @@ int main(void) {
   PointTable.push_back(dummyPoint);
 
   for (auto p : PointTable) {
-    cout << p.x << p.y << p.yaw;
+    cout << p.x << p.y << p.yaw << endl;
   }
 
   sleep(1);
@@ -352,11 +407,14 @@ int main(void) {
     switch (phase) {
     case 0: {
       if ((ms.send(ShootRID, 10, 0) == 2) && (ms.send(ShootLID, 10, 0) == 2)) {
+        /*
         if (PointTwoTableFin + 1 == pointCount) {
           vector<struct pointinfo> dummy = uture.get();
-          PointTable.insert(PointTable.begin() + PointTwoTableFin + 1,
+          PointTable.insert(PointTable.begin() + PointTwoTableFin +
+        1,
                             dummy.begin(), dummy.end());
         }
+        */
         goal = PointTable.at(pointCount);
         yawGoal = goal.yaw;
         phase = 1;
@@ -579,7 +637,8 @@ int main(void) {
       for (int i = 0; i < 3; ++i) {
         cout << (int)wheelGoal[i] << ", ";
       }
-      cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << endl;
+      cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw <<
+      endl;
       for (int i = 0; i < 3; ++i) {
         cout << wheelIn[i] << ",";
       }
@@ -662,8 +721,8 @@ inline bool yaw_check(int goal, int now) {
   return 0;
 }
 
-void move_plan(promise<vector> p, int MoveTableX[3],
-               constexpr int MoveTableY[3], constexpr int MoveTableR[3]) {
+void move_plan(promise<vector<struct pointinfo>> p, int MoveTableX[3],
+               int MoveTableY[3], int MoveTableR[3], int *flagZone) {
   string CSFile("CS.txt");
   while (readRed(CSFile, MoveTableX) == -1) {
     sleep(1);
@@ -671,16 +730,16 @@ void move_plan(promise<vector> p, int MoveTableX[3],
   struct pointinfo dummy;
   vector<struct pointinfo> send;
 
-  dummy = {firstx * flagzone, MoveTableY[0] - 1000, 180, false, 0, 0};
+  // dummy = {firstX * (*flagzone), MoveTableY[0] - 1000, 180, false, 0, 0};
   send.push_back(dummy);
 
-  dummy = {(MoveTableX[0] - MoveTableR[3]) * flagzone,
-           MoveTabley[0],
+  dummy = {(MoveTableX[0] - MoveTableR[3]) * (*flagZone),
+           MoveTableY[0],
            -90,
            true,
            2,
            2};
   send.push_back(dummy);
 
-  p.set_value(send)
+  p.set_value(send);
 }
