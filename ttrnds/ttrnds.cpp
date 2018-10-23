@@ -41,7 +41,7 @@ inline bool yaw_check(int goal, int now);
 constexpr double ErrorYaw = 3;
 inline void finish();
 void move_plan(promise<vector<struct pointinfo>> p, int MoveTableX[3],
-               int MoveTableY[3], int MoveTableR[3], int *flagZone);
+               int *flagZone);
 
 int main(void) {
   MotorSerial ms;
@@ -125,17 +125,14 @@ int main(void) {
   // MoveTable
   constexpr int MoveTableY[3] = {5500, 6500, 7500};
   int MoveTableX[3] = {3500, 3500, 3500};
-  constexpr int MoveTableR[3] = {1200, 1200, 1200};
   promise<vector<struct pointinfo>> CSp;
-  future<vector<pointinfo>> CSf = CSp.get_future();
-  // thread CSth(move_plan, move(CSp), MoveTableX, MoveTableY, MoveTable,
-  // &flagZone);
+  future<vector<struct pointinfo>> CSf = CSp.get_future();
+  thread CSth(move_plan, move(CSp), MoveTableX, &flagZone);
 
   // Home
   constexpr int HomeMin = 20, HomeSpead = 15, HomeSpeadMax = 170, HomeMax = 400;
   constexpr double HomeReg =
       (HomeSpeadMax - HomeSpead) / log(HomeMax - HomeMin + 1);
-  bool flagHome = false;
 
   // bia Field View, also yawGoal = moment
   double velocityF, angleF;
@@ -722,7 +719,9 @@ inline bool yaw_check(int goal, int now) {
 }
 
 void move_plan(promise<vector<struct pointinfo>> p, int MoveTableX[3],
-               int MoveTableY[3], int MoveTableR[3], int *flagZone) {
+               int *flagZone) {
+  constexpr int MoveTableY[3] = {5500, 6500, 7500};
+  constexpr int MoveTableR[3] = {1200, 1200, 1200};
   string CSFile("CS.txt");
   while (readRed(CSFile, MoveTableX) == -1) {
     sleep(1);
