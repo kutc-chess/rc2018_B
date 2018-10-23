@@ -227,14 +227,11 @@ int main(void) {
   //----------Plan Root----------
   struct pointinfo dummyPoint;
   // Turn Table
-  /*
   for (int i = 0; i < TwoTableDiv - 2; PointTwoTableFin = i, ++i) {
     dummyPoint.yaw = (270 + i * 360 / TwoTableDiv) % 360;
     dummyPoint.x =
-        (TwoTableX + TwoTableR * sin(dummyPoint.yaw * M_PI / 180)) *
-  flagZone;
-    dummyPoint.y = TwoTableY - TwoTableR * cos(dummyPoint.yaw * M_PI
-  / 180);
+        (TwoTableX + TwoTableR * sin(dummyPoint.yaw * M_PI / 180)) * flagZone;
+    dummyPoint.y = TwoTableY - TwoTableR * cos(dummyPoint.yaw * M_PI / 180);
     dummyPoint.table = 1;
     dummyPoint.ultra = 0;
 
@@ -251,11 +248,9 @@ int main(void) {
     if (dummyPoint.yaw % 90 == 0) {
       struct pointinfo dummyUltra = dummyPoint;
       dummyUltra.x =
-          (TwoTableX + UltraSideR * sin(dummyUltra.yaw * M_PI /
-  180)) *
+          (TwoTableX + UltraSideR * sin(dummyUltra.yaw * M_PI / 180)) *
           flagZone;
-      dummyUltra.y = TwoTableY - UltraSideR * cos(dummyUltra.yaw *
-  M_PI / 180);
+      dummyUltra.y = TwoTableY - UltraSideR * cos(dummyUltra.yaw * M_PI / 180);
       dummyUltra.ultra = 1;
       dummyUltra.shoot = false;
       PointTable.push_back(dummyUltra);
@@ -264,7 +259,7 @@ int main(void) {
     }
     PointTable.push_back(dummyPoint);
   }
-  */
+  /*
   // Square Table
   for (int i = 0; i < TwoTableDiv; PointTwoTableFin = i, ++i) {
     dummyPoint.yaw = (270 + i * 360 / TwoTableDiv) % 360;
@@ -310,6 +305,7 @@ int main(void) {
     }
     PointTable.push_back(dummyPoint);
   }
+  */
 
   dummyPoint = {firstX * flagZone, MoveTableY[0] - 1000, 180, false, 0, 0};
   PointTable.push_back(dummyPoint);
@@ -319,7 +315,7 @@ int main(void) {
   PointTable.push_back(dummyPoint);
 
   for (auto p : PointTable) {
-    cout << p.x << p.y << p.yaw << endl;
+    cout << p.x << ", " << p.y << ", " << p.yaw << endl;
   }
 
   sleep(1);
@@ -599,6 +595,7 @@ int main(void) {
       moment = yawProp * yawDelta + yawInt * yawDelta * delta +
                yawDeff * (yawDelta - yawPrev) / delta;
       moment *= -1 * flagZone;
+      cout << yawDelta << ", " << moment << endl;
 
       if (moment > MomentMax) {
         moment = MomentMax;
@@ -628,8 +625,8 @@ int main(void) {
       // Output
       // Data
       cout << start << ", ";
-      cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw;
-      cout << velocityF << ", " << velocityR << ", " << angleR;
+      cout << goal.x << ", " << goal.y << ", " << goal.yaw << ", ";
+      cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << ", ";
       /*
       for (int i = 0; i < 3; ++i) {
         cout << (int)wheelGoal[i] << ", ";
@@ -720,6 +717,7 @@ inline bool yaw_check(int goal, int now) {
 
 void move_plan(promise<vector<struct pointinfo>> p, int MoveTableX[3],
                int *flagZone) {
+  /*
   constexpr int MoveTableY[3] = {5500, 6500, 7500};
   constexpr int MoveTableR[3] = {1200, 1200, 1200};
   string CSFile("CS.txt");
@@ -741,4 +739,5 @@ void move_plan(promise<vector<struct pointinfo>> p, int MoveTableX[3],
   send.push_back(dummy);
 
   p.set_value(send);
+  */
 }
