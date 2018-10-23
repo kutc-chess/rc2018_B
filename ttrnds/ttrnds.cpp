@@ -90,7 +90,7 @@ int main(void) {
   long double delta, start = 0;
 
   //----------Shoot---------
-  constexpr int ShootR = 300, ShootL = 303;
+  constexpr int ShootR = 304, ShootL = 304;
   constexpr int ShootRID = 5, ShootLID = 6;
   int shineR = 31, shineL = 29;
   bool flagShootR = false;
@@ -125,10 +125,12 @@ int main(void) {
   // MoveTable
   constexpr int MoveTableY[3] = {5500, 6500, 7500};
   int MoveTableX[3] = {3500, 3500, 3500};
+  /*
   promise<vector<struct pointinfo>> CSp;
   future<vector<struct pointinfo>> CSf = CSp.get_future();
   thread CSth(move_plan, move(CSp), MoveTableX, &flagZone);
 
+  */
   // Home
   constexpr int HomeMin = 20, HomeSpead = 15, HomeSpeadMax = 170, HomeMax = 400;
   constexpr double HomeReg =
@@ -227,6 +229,7 @@ int main(void) {
   //----------Plan Root----------
   struct pointinfo dummyPoint;
   // Turn Table
+  /*
   for (int i = 0; i < TwoTableDiv - 2; PointTwoTableFin = i, ++i) {
     dummyPoint.yaw = (270 + i * 360 / TwoTableDiv) % 360;
     dummyPoint.x =
@@ -259,9 +262,9 @@ int main(void) {
     }
     PointTable.push_back(dummyPoint);
   }
-  /*
+  */
   // Square Table
-  for (int i = 0; i < TwoTableDiv; PointTwoTableFin = i, ++i) {
+  for (int i = 0; i < TwoTableDiv - 1; PointTwoTableFin = i, ++i) {
     dummyPoint.yaw = (270 + i * 360 / TwoTableDiv) % 360;
     dummyPoint.x =
         (TwoTableX + TwoTableR * sin(dummyPoint.yaw * M_PI / 180)) * flagZone;
@@ -305,7 +308,6 @@ int main(void) {
     }
     PointTable.push_back(dummyPoint);
   }
-  */
 
   dummyPoint = {firstX * flagZone, MoveTableY[0] - 1000, 180, false, 0, 0};
   PointTable.push_back(dummyPoint);
@@ -676,7 +678,7 @@ finish:
   gpioWrite(ZoneBlue, 0);
   gpioWrite(LEDCal, 0);
   gpioWrite(LEDReset, 0);
-  CSth.detach();
+  // CSth.detach();
   return restart;
 }
 
