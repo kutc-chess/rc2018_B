@@ -226,6 +226,7 @@ int main(void) {
 
   //----------Plan Root----------
   struct pointinfo dummyPoint;
+  /*
   // Turn Table
   for (int i = 0; i < TwoTableDiv - 2; PointTwoTableFin = i, ++i) {
     dummyPoint.yaw = (270 + i * 360 / TwoTableDiv) % 360;
@@ -259,7 +260,7 @@ int main(void) {
     }
     PointTable.push_back(dummyPoint);
   }
-  /*
+  */
   // Square Table
   for (int i = 0; i < TwoTableDiv; PointTwoTableFin = i, ++i) {
     dummyPoint.yaw = (270 + i * 360 / TwoTableDiv) % 360;
@@ -305,7 +306,6 @@ int main(void) {
     }
     PointTable.push_back(dummyPoint);
   }
-  */
 
   dummyPoint = {firstX * flagZone, MoveTableY[0] - 1000, 180, false, 0, 0};
   PointTable.push_back(dummyPoint);
@@ -718,7 +718,6 @@ inline bool yaw_check(int goal, int now) {
 
 void move_plan(promise<vector<struct pointinfo>> p, int MoveTableX[3],
                int *flagZone) {
-  /*
   constexpr int MoveTableY[3] = {5500, 6500, 7500};
   constexpr int MoveTableR[3] = {1200, 1200, 1200};
   string CSFile("CS.txt");
@@ -728,7 +727,6 @@ void move_plan(promise<vector<struct pointinfo>> p, int MoveTableX[3],
   struct pointinfo dummy;
   vector<struct pointinfo> send;
 
-  // dummy = {firstX * (*flagzone), MoveTableY[0] - 1000, 180, false, 0, 0};
   send.push_back(dummy);
 
   dummy = {(MoveTableX[0] - MoveTableR[3]) * (*flagZone),
@@ -740,5 +738,4 @@ void move_plan(promise<vector<struct pointinfo>> p, int MoveTableX[3],
   send.push_back(dummy);
 
   p.set_value(send);
-  */
 }
