@@ -88,7 +88,7 @@ int main(void) {
   long double delta, start = 0;
 
   //----------Shoot---------
-  constexpr int ShootR = 289, ShootL = 295;
+  constexpr int ShootR = 296, ShootL = 296;
   constexpr int ShootRID = 5, ShootLID = 6;
   int shineR = 31, shineL = 29;
   bool flagShootR = false;
@@ -317,7 +317,7 @@ int main(void) {
   PointTable.push_back(dummyPoint);
 
   dummyPoint = {
-      (firstX - 100) * flagZone, firstY - 100, (int)firstDeg, false, 5, 0};
+      (firstX - 100) * flagZone, firstY - 500, (int)firstDeg, false, 5, 0};
   PointTable.push_back(dummyPoint);
 
   for (auto p : PointTable) {
