@@ -139,7 +139,7 @@ int main(void) {
   //----------Movement----------
   // OutPut
   constexpr int WheelID[3] = {1, 2, 3};
-  constexpr int SpeedMax = 180;
+  constexpr int SpeedMax = 240;
   constexpr int SpeedMin = 10;
   constexpr int MomentMax = 25;
   constexpr double WheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
@@ -335,7 +335,7 @@ int main(void) {
     }
   }
   ms.send(ShootRID, 10, ShootR);
-  ms.send(ShootLID, 10, ShootL);
+  ms.send(ShootLID, 10, 500);
 
   cout << "Main Start" << endl;
   gpioWrite(BCheck, 1);
@@ -407,89 +407,69 @@ int main(void) {
     case 0: {
       if ((ms.send(ShootRID, 10, 0) == 2) && (ms.send(ShootLID, 10, 0) == 2)) {
         /*
-      if (PointTwoTableFin + 1 == pointCount) {
-        CSf.get();
-        struct pointinfo dummy;
-        bool flagDummy[2] = {};
-        vector<struct pointinfo> dummyTable[2], dummyTableFin;
+        if (PointTwoTableFin == pointCount) {
+          CSf.get();
+          cout << "Move Plan" << endl;
+          struct pointinfo dummy;
+          vector<struct pointinfo> dummyTable[2];
 
-        if (MoveTableX[0] + MoveTableR[0] + 500 <= 5000) {
-          dummy = {(MoveTableX[0] + MoveTableR[0] + 100) * flagZone,
-                   MoveTableY[0] - 1000,
-                   180,
-                   false,
-                   0,
-                   0};
-          dummyTable[0].push_back(dummy);
+          if (MoveTableX[0] + MoveTableR[0] + 500 <= 5000) {
+            dummy = {(MoveTableX[0] + MoveTableR[0] + 100) * flagZone,
+                     MoveTableY[0] - 1000,
+                     180,
+                     false,
+                     0,
+                     0};
+            dummyTable[0].push_back(dummy);
 
-          dummy = {(MoveTableX[0] + MoveTableR[0]) * flagZone,
-                   MoveTableY[0],
-                   90,
-                   false,
-                   2,
-                   2};
-          dummyTable[0].push_back(dummy);
+            dummy = {(MoveTableX[0] + MoveTableR[0]) * flagZone,
+                     MoveTableY[0],
+                     90,
+                     false,
+                     2,
+                     2};
+            dummyTable[0].push_back(dummy);
 
-          dummy = {(MoveTableX[0] + MoveTableR[0] + 100) * flagZone,
-                   MoveTableY[0] - 1000,
-                   0,
-                   false,
-                   180,
-                   0};
-          dummyTable[0].push_back(dummy);
-          flagDummy[0] = true;
-        }
-        if (MoveTableX[0] - MoveTableR[0] - 500 >= 0) {
-          dummy = {(MoveTableX[0] - MoveTableR[0] - 100) * flagZone,
-                   MoveTableY[0] - 1000,
-                   180,
-                   false,
-                   0,
-                   0};
-          dummyTable[1].push_back(dummy);
+            dummy = {(MoveTableX[0] + MoveTableR[0] + 100) * flagZone,
+                     MoveTableY[0] - 1000,
+                     0,
+                     false,
+                     180,
+                     0};
+            dummyTable[0].push_back(dummy);
 
-          dummy = {(MoveTableX[0] + MoveTableR[0]) * flagZone,
-                   MoveTableY[0],
-                   -90,
-                   false,
-                   2,
-                   2};
-          dummyTable[1].push_back(dummy);
+            PointTable.insert(PointTable.begin() + PointTwoTableFin,
+                              dummyTable[0].begin(), dummyTable[0].end());
+          } else {
+            dummy = {(MoveTableX[0] - MoveTableR[0] - 100) * flagZone,
+                     MoveTableY[0] - 1000,
+                     180,
+                     false,
+                     0,
+                     0};
+            dummyTable[1].push_back(dummy);
 
-          dummy = {(MoveTableX[0] + MoveTableR[0] + 100) * flagZone,
-                   MoveTableY[0] - 1000,
-                   180,
-                   false,
-                   0,
-                   0};
-          dummyTable[1].push_back(dummy);
-          flagDummy[1] = true;
-        }
+            dummy = {(MoveTableX[0] + MoveTableR[0]) * flagZone,
+                     MoveTableY[0],
+                     -90,
+                     false,
+                     2,
+                     2};
+            dummyTable[1].push_back(dummy);
 
-        if (MoveTableX[0] > TwoTableX) {
-          if (flagDummy[1]) {
-            dummyTableFin.insert(dummyTableFin.end(), dummyTable[1].begin(),
-                                 dummyTable[1].end());
-          }
-          if (flagDummy[0]) {
-            dummyTableFin.insert(dummyTableFin.end(), dummyTable[0].begin(),
-                                 dummyTable[0].end());
-          }
-        } else {
-          if (flagDummy[0]) {
-            dummyTableFin.insert(dummyTableFin.end(), dummyTable[0].begin(),
-                                 dummyTable[0].end());
-          }
-          if (flagDummy[1]) {
-            dummyTableFin.insert(dummyTableFin.end(), dummyTable[1].begin(),
-                                 dummyTable[1].end());
+            dummy = {(MoveTableX[0] + MoveTableR[0] + 100) * flagZone,
+                     MoveTableY[0] - 1000,
+                     180,
+                     false,
+                     0,
+                     0};
+            dummyTable[1].push_back(dummy);
+
+            PointTable.insert(PointTable.begin() + PointTwoTableFin,
+                              dummyTable[1].begin(), dummyTable[1].end());
           }
         }
-
-        PointTable.insert(PointTable.begin() + PointTwoTableFin + 1,
-                          dummyTableFin.begin(), dummyTableFin.end());
-      }
-      */
+        */
 
         goal = PointTable.at(pointCount);
         yawGoal = goal.yaw;
@@ -742,7 +722,9 @@ int main(void) {
         ms.send(WheelID[i], 2, wheelGoal[i]);
       }
 
-      if (start - stop > StopTime) {
+      if (start - stop > StopTime && goal.shoot) {
+        phase = 2;
+      } else if (start - stop > 0.5 && !goal.shoot) {
         phase = 2;
       }
       break;
@@ -817,9 +799,11 @@ inline bool yaw_check(int goal, int now) {
 
 void move_plan(promise<void> p, int MoveTableX[3]) {
   string CSFile("CS.txt");
+  /*
   while (readRed(CSFile, MoveTableX) == -1) {
     sleep(2);
   }
 
   p.set_value();
+  */
 }
