@@ -90,6 +90,7 @@ int main(void) {
   //----------Shoot---------
   constexpr int ShootR = 291, ShootL = 293;
   constexpr int ShootRID = 5, ShootLID = 6;
+  constexpr int ShootRH = 210;
   int shineR = 31, shineL = 29;
   bool flagShootR = false;
   ms.send(1, 31, ShootR);
@@ -129,7 +130,7 @@ int main(void) {
   thread CSth(move_plan, move(CSp), MoveTableX);
 
   // Home
-  constexpr int HomeMin = 20, HomeSpead = 15, HomeSpeadMax = 190, HomeMax = 400;
+  constexpr int HomeMin = 20, HomeSpead = 15, HomeSpeadMax = 90, HomeMax = 400;
   constexpr double HomeReg =
       (HomeSpeadMax - HomeSpead) / log(HomeMax - HomeMin + 1);
 
@@ -139,7 +140,7 @@ int main(void) {
   //----------Movement----------
   // OutPut
   constexpr int WheelID[3] = {1, 2, 3};
-  constexpr int SpeedMax = 240;
+  constexpr int SpeedMax = 120;
   constexpr int SpeedMin = 10;
   constexpr int MomentMax = 25;
   constexpr double WheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
@@ -265,6 +266,16 @@ int main(void) {
   }
   */
   // Square Table
+  dummyPoint = {TwoTableX * flagZone, TwoTableY - UltraSideR, 270, false, 0, 1};
+  PointTable.push_back(dummyUltra);
+
+  dummyPoint = {
+      (TwoTableX - 350 / 2) * flagZone, TwoTableY - TwoTableR, 270, true, 6, 2};
+  PointTable.push_back(dummyUltra);
+
+  dummyPoint = {
+      (firstX - 100) * flagZone, firstY - 500, (int)firstDeg, false, 5, 0};
+  PointTable.push_back(dummyPoint);
 
   for (int i = 0; i < TwoTableDiv - 1; ++i) {
     dummyPoint.yaw = (270 + i * 360 / TwoTableDiv) % 360;
@@ -317,6 +328,7 @@ int main(void) {
   dummyPoint = {
       (firstX + 100) * flagZone, MoveTableY[0] - 1000, 180, false, 0, 0};
   PointTable.push_back(dummyPoint);
+  ++PointTwoTableFin;
 
   dummyPoint = {
       (firstX - 100) * flagZone, firstY - 500, (int)firstDeg, false, 5, 0};
@@ -403,8 +415,7 @@ start:
       nowPoint[0] = firstX * flagZone;
       nowPoint[1] = firstY;
       phase = 0;
-      pointCount = 0;
-      cout << "Reset" << endl;
+      pointCount = 3;
       goto start;
     }
 
@@ -737,15 +748,23 @@ start:
     case 2: {
       // Shoot
       if (goal.shoot) {
-        if (ms.send(ShootLID, 10, 0) == 2 && !flagShootR) {
-          ms.send(ShootRID, 10, ShootR);
-          ms.send(1, 30, shineR);
-          flagShootR = true;
-        } else if (ms.send(ShootRID, 10, 0) == 2) {
-          ms.send(ShootLID, 10, ShootL);
-          ms.send(1, 30, shineL);
-          flagShootR = false;
-          phase = 0;
+        if (goal.table == 6) {
+          if (ms.send(ShootLID, 10, 0) == 2) {
+            ms.send(ShootRID, 10, ShootRH);
+            ms.send(1, 30, shineR);
+            phase = 0;
+          }
+        } else {
+          if (ms.send(ShootLID, 10, 0) == 2 && !flagShootR) {
+            ms.send(ShootRID, 10, ShootR);
+            ms.send(1, 30, shineR);
+            flagShootR = true;
+          } else if (ms.send(ShootRID, 10, 0) == 2) {
+            ms.send(ShootLID, 10, ShootL);
+            ms.send(1, 30, shineL);
+            flagShootR = false;
+            phase = 0;
+          }
         }
       } else {
         phase = 0;
