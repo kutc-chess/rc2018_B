@@ -173,6 +173,7 @@ int main(void) {
   constexpr double yawProp = 7.2, yawInt = 51.42, yawDeff = 0.252;
   // constexpr double yawProp = 10, yawInt = 185.4, yawDeff = 0.672;
 
+  gpioWrite(BCheck, 1);
   //----------Calibration----------
   while (1) {
     if (gpioRead(CheckCal)) {
@@ -324,6 +325,7 @@ int main(void) {
     cout << p.x << ", " << p.y << ", " << p.yaw << endl;
   }
 
+start:
   sleep(1);
   if (flagZone == 1) {
     gpioWrite(ZoneRed, 1);
@@ -338,7 +340,6 @@ int main(void) {
   ms.send(ShootLID, 10, 500);
 
   cout << "Main Start" << endl;
-  gpioWrite(BCheck, 1);
   clock_gettime(CLOCK_REALTIME, &now);
   gyro.start(firstDeg * flagZone);
   phase = 0;
@@ -392,15 +393,17 @@ int main(void) {
     }
 
     //----------Reset----------
+    if (!gpioRead(CheckCal) && gpioRead(CheckReset)) {
+      goto finish;
+    }
+
     if (gpioRead(CheckReset)) {
       gyro.resetYaw(firstDeg * flagZone);
       nowPoint[0] = firstX * flagZone;
       nowPoint[1] = firstY;
       phase = 0;
       pointCount = 0;
-      if (!gpioRead(CheckCal)) {
-        goto finish;
-      }
+      goto start;
     }
 
     switch (phase) {
