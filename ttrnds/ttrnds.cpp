@@ -88,7 +88,7 @@ int main(void) {
   long double delta, start = 0;
 
   //----------Shoot---------
-  constexpr int ShootR = 296, ShootL = 296;
+  constexpr int ShootR = 291, ShootL = 293;
   constexpr int ShootRID = 5, ShootLID = 6;
   int shineR = 31, shineL = 29;
   bool flagShootR = false;
