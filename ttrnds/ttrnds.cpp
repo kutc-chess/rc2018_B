@@ -122,7 +122,7 @@ int main(void) {
 
   // MoveTable
   constexpr int MoveTableY[3] = {5500, 6500, 7500};
-  int MoveTableX[3] = {3500, 3500, 3500};
+  int MoveTableX[3] = {3250, 3250, 3250};
   constexpr int MoveTableR[3] = {1295, 1290, 1290};
   promise<void> CSp;
   future<void> CSf = CSp.get_future();
@@ -139,13 +139,14 @@ int main(void) {
   //----------Movement----------
   // OutPut
   constexpr int WheelID[3] = {1, 2, 3};
-  constexpr int SpeedMax = 240;
+  constexpr int SpeedMax = 100;
   constexpr int SpeedMin = 10;
+  constexpr double SpeadLate = 4640 / 240;
   constexpr int MomentMax = 25;
   constexpr double WheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
   double wheelSlow;
   double wheelGoal[3] = {};
-  constexpr int ErrorMin = 20, ErrorSpead = 15, ErrorMax = 700;
+  constexpr int ErrorMin = 10, ErrorSpead = 25, ErrorMax = 1800;
   constexpr double ErrorReg =
       (SpeedMax - ErrorSpead) / log(ErrorMax - ErrorMin + 1);
 
@@ -156,6 +157,7 @@ int main(void) {
   // WheelSpeed Control from  Accel
   // Result: velocityOut[PWM], Goal: velocityGoal[PWM],
   // Control:velocityOut[PWM]
+  // constexpr double AccelMax = 150, Jerk = 205;
   constexpr double AccelMax = 150, Jerk = 205;
   double velocityGoal[2] = {}, velocityAccel[2] = {}, velocityOut[2] = {};
   long double accelTime[2][3] = {{}, {}}, accelStart = 0;
@@ -266,6 +268,7 @@ int main(void) {
   */
   // Square Table
 
+  /*
   for (int i = 0; i < TwoTableDiv - 1; ++i) {
     dummyPoint.yaw = (270 + i * 360 / TwoTableDiv) % 360;
     dummyPoint.x =
@@ -317,9 +320,64 @@ int main(void) {
   dummyPoint = {
       (firstX + 100) * flagZone, MoveTableY[0] - 1000, 180, false, 0, 0};
   PointTable.push_back(dummyPoint);
+  */
+  dummyPoint = {500 * flagZone, TwoTableY, (int)firstDeg, false, 0, 0};
+  PointTable.push_back(dummyPoint);
 
-  dummyPoint = {
-      (firstX - 100) * flagZone, firstY - 500, (int)firstDeg, false, 5, 0};
+  dummyPoint = {(TwoTableX - TwoTableR) * flagZone,
+                TwoTableY,
+                (int)firstDeg,
+                false,
+                0,
+                0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {500 * flagZone, TwoTableY, (int)firstDeg, false, 0, 0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {500 * flagZone, MoveTableY[0], (int)firstDeg, false, 0, 0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {(MoveTableX[0] - MoveTableR[0]) * flagZone,
+                MoveTableY[0],
+                (int)firstDeg,
+                false,
+                0,
+                0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {500 * flagZone, MoveTableY[0], (int)firstDeg, false, 0, 0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {500 * flagZone, MoveTableY[1], (int)firstDeg, false, 0, 0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {(MoveTableX[1] - MoveTableR[1]) * flagZone,
+                MoveTableY[1],
+                (int)firstDeg,
+                false,
+                0,
+                0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {500 * flagZone, MoveTableY[1], (int)firstDeg, false, 0, 0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {500 * flagZone, MoveTableY[2], (int)firstDeg, false, 0, 0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {(MoveTableX[2] - MoveTableR[2]) * flagZone,
+                MoveTableY[2],
+                (int)firstDeg,
+                false,
+                0,
+                0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {500 * flagZone, MoveTableY[2], (int)firstDeg, false, 0, 0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {firstX * flagZone, firstY, (int)firstDeg, false, 0, 0};
   PointTable.push_back(dummyPoint);
 
   for (auto p : PointTable) {
@@ -337,8 +395,6 @@ start:
     while (!gpioRead(CheckBlue)) {
     }
   }
-  ms.send(ShootRID, 10, ShootR);
-  ms.send(ShootLID, 10, 500);
 
   cout << "Main Start" << endl;
   clock_gettime(CLOCK_REALTIME, &now);
@@ -405,6 +461,7 @@ start:
       phase = 0;
       pointCount = 0;
       cout << "Reset" << endl;
+      ms.send(255, 255, 0);
       goto start;
     }
 
@@ -500,6 +557,7 @@ start:
       nowPoint[1] -= deltaL * sin(deltaA + flagZone * yaw * M_PI / 180);
 
       // bia UltraSonic
+      /*
       switch (goal.ultra) {
       case 1: {
         int dummyY = measureY + 400;
@@ -574,6 +632,7 @@ start:
         break;
       }
       }
+      */
 
       velocityF = hypot(goal.y - nowPoint[1], goal.x - nowPoint[0]);
       angleF = atan2(goal.y - nowPoint[1], goal.x - nowPoint[0]);
@@ -585,8 +644,10 @@ start:
         velocityF = 0;
         flagNear = true;
       } else if (velocityF < ErrorMax) {
-        velocityF = SpeedMax - ErrorReg * log(ErrorMax - velocityF + 1);
-        flagNear = true;
+        // velocityF = SpeedMax - ErrorReg * log(ErrorMax - velocityF + 1);
+        // flagNear = true;
+        velocityF = ErrorSpead;
+        flagNear = false;
         stop = start;
       } else {
         velocityF = SpeedMax;
@@ -619,7 +680,8 @@ start:
         velocityGoal[1] = velocityF * sin(angleF);
         accelStart = start;
         for (int i = 0; i < 2; ++i) {
-          accelTime[i][0] = (AccelMax - velocityAccel[i]) / Jerk;
+          accelTime[i][0] =
+              M_PI * (velocityGoal[i] - velocityOut[i]) / (2 * AccelMax);
           accelTime[i][1] =
               (fabs((double)velocityGoal[i] - velocityOut[i]) -
                (AccelMax + velocityAccel[i]) / 2 * accelTime[i][0] -
@@ -711,6 +773,7 @@ start:
       cout << start << ", ";
       cout << goal.x << ", " << goal.y << ", " << goal.yaw << ", ";
       cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << ", ";
+      cout << velocityOut[0] << ", " << velocityOut[1];
       /*
       for (int i = 0; i < 3; ++i) {
         cout << (int)wheelGoal[i] << ", ";
@@ -723,6 +786,8 @@ start:
       */
       cout << endl;
 
+      wheelGoal[0] = 240;
+      cout << start << ", " << wheelIn[0] << endl;
       for (int i = 0; i < 3; ++i) {
         ms.send(WheelID[i], 2, wheelGoal[i]);
       }
