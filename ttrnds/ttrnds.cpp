@@ -307,6 +307,17 @@ start:
           (double)(wheelIn[i] - wheelInPrev[i]) * WheelCirc / (double)Range;
     }
 
+    //-----------Guess Field----------
+    deltaX = deltaY = 0;
+    for (int i = 0; i < 3; ++i) {
+      deltaX += MatrixPoint[0][i] * wheelSpeed[i];
+      deltaY += MatrixPoint[1][i] * wheelSpeed[i];
+    }
+    deltaL = hypot(deltaX, deltaY);
+    deltaA = atan2(deltaY, deltaX);
+    nowPoint[0] -= deltaL * cos(deltaA + flagZone * yaw * M_PI / 180);
+    nowPoint[1] -= deltaL * sin(deltaA + flagZone * yaw * M_PI / 180);
+
     //----------Reset----------
     if (!gpioRead(CheckCal) && gpioRead(CheckReset)) {
       goto finish;
@@ -324,6 +335,7 @@ start:
     }
 
     switch (phase) {
+    //----------Set Goal----------
     case 0: {
       if ((ms.send(ShootRID, 10, 0) == 2) && (ms.send(ShootLID, 10, 0) == 2)) {
         goal = PointTable.at(pointCount);
@@ -338,45 +350,12 @@ start:
       break;
     }
 
+    //----------Plan Output----------
     case 1: {
       velocityF = hypot(goal.y - nowPoint[1], goal.x - nowPoint[0]);
       angleF = atan2(goal.y - nowPoint[1], goal.x - nowPoint[0]);
-      break;
-    }
-    case 2: {
 
-      //-----------Guess Field----------
-      deltaX = deltaY = 0;
-      for (int i = 0; i < 3; ++i) {
-        deltaX += MatrixPoint[0][i] * wheelSpeed[i];
-        deltaY += MatrixPoint[1][i] * wheelSpeed[i];
-      }
-      deltaL = hypot(deltaX, deltaY);
-      deltaA = atan2(deltaY, deltaX);
-      nowPoint[0] -= deltaL * cos(deltaA + flagZone * yaw * M_PI / 180);
-      nowPoint[1] -= deltaL * sin(deltaA + flagZone * yaw * M_PI / 180);
-
-      velocityF = hypot(goal.y - nowPoint[1], goal.x - nowPoint[0]);
-      angleF = atan2(goal.y - nowPoint[1], goal.x - nowPoint[0]);
-
-      //----------Movement----------
-      // Input
       // WheelSpeed Control from Accel
-      if (velocityF < ErrorMin && velocityF > -ErrorMin) {
-        velocityF = 0;
-        flagNear = true;
-      } else if (velocityF < ErrorMax) {
-        // velocityF = SpeedMax - ErrorReg * log(ErrorMax - velocityF + 1);
-        // flagNear = true;
-        velocityF = ErrorSpead;
-        flagNear = false;
-        stop = start;
-      } else {
-        velocityF = SpeedMax;
-        flagNear = false;
-        stop = start;
-      }
-
       velocityGoal[0] = velocityF * cos(angleF);
       velocityGoal[1] = velocityF * sin(angleF);
       accelStart = start;
@@ -406,7 +385,14 @@ start:
         } else {
           accelPolar[i] = -1;
         }
+      }
+      break;
+    }
 
+    //----------Movement----------
+    case 2: {
+      // Output bia Plan Output
+      for (int i = 0; i < 2; ++i) {
         if (start - accelStart < accelTime[i][0]) {
           velocityAccel[i] += Jerk * delta;
           velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
