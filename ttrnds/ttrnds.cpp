@@ -400,14 +400,11 @@ int main(void) {
     switch (phase) {
     case 0: {
       if ((ms.send(ShootRID, 10, 0) == 2) && (ms.send(ShootLID, 10, 0) == 2)) {
-        /*
         if (PointTwoTableFin + 1 == pointCount) {
-          vector<struct pointinfo> dummy = uture.get();
-          PointTable.insert(PointTable.begin() + PointTwoTableFin +
-        1,
+          vector<struct pointinfo> dummy = future.get();
+          PointTable.insert(PointTable.begin() + PointTwoTableFin + 1,
                             dummy.begin(), dummy.end());
         }
-        */
         goal = PointTable.at(pointCount);
         yawGoal = goal.yaw;
         phase = 1;
