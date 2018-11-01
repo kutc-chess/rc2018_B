@@ -4,15 +4,10 @@
 #include "/home/pi/RasPiDS3/RasPiDS3.hpp"
 #include "/home/pi/Sensor/GY521/GY521.hpp"
 #include "/home/pi/Sensor/RotaryInc/RotaryInc.hpp"
-#include <algorithm>
 #include <cmath>
-#include <future>
 #include <iostream>
 #include <pigpio.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string>
-#include <thread>
 #include <time.h>
 #include <unistd.h>
 #include <vector>
@@ -39,7 +34,6 @@ inline double wheel_Func(double rad);
 inline double check(double a, double b, double c);
 inline bool yaw_check(int goal, int now);
 constexpr double ErrorYaw = 3;
-void move_plan(promise<void> p, int MoveTableX[3]);
 
 int main(void) {
   MotorSerial ms;
@@ -114,14 +108,6 @@ int main(void) {
   constexpr int MoveTableY[3] = {5500, 6500, 7500};
   int MoveTableX[3] = {3250, 3250, 3250};
   constexpr int MoveTableR[3] = {1295, 1290, 1290};
-  promise<void> CSp;
-  future<void> CSf = CSp.get_future();
-  thread CSth(move_plan, move(CSp), MoveTableX);
-
-  // Home
-  constexpr int HomeMin = 20, HomeSpead = 15, HomeSpeadMax = 190, HomeMax = 400;
-  constexpr double HomeReg =
-      (HomeSpeadMax - HomeSpead) / log(HomeMax - HomeMin + 1);
 
   // bia Field View, also yawGoal = moment
   double velocityF, angleF;
@@ -152,7 +138,6 @@ int main(void) {
   double velocityGoal[2] = {}, velocityAccel[2] = {}, velocityOut[2] = {};
   long double accelTime[2][3] = {{}, {}}, accelStart = 0;
   int accelPolar[2] = {};
-  bool flagNear = false;
   long double stop = 0;
   constexpr double StopTime = 1.0;
 
@@ -341,73 +326,9 @@ start:
     switch (phase) {
     case 0: {
       if ((ms.send(ShootRID, 10, 0) == 2) && (ms.send(ShootLID, 10, 0) == 2)) {
-        /*
-        if (PointTwoTableFin == pointCount) {
-          CSf.get();
-          cout << "Move Plan" << endl;
-          struct pointinfo dummy;
-          vector<struct pointinfo> dummyTable[2];
-
-          if (MoveTableX[0] + MoveTableR[0] + 500 <= 5000) {
-            dummy = {(MoveTableX[0] + MoveTableR[0] + 100) * flagZone,
-                     MoveTableY[0] - 1000,
-                     180,
-                     false,
-                     0,
-                     0};
-            dummyTable[0].push_back(dummy);
-
-            dummy = {(MoveTableX[0] + MoveTableR[0]) * flagZone,
-                     MoveTableY[0],
-                     90,
-                     false,
-                     2,
-                     2};
-            dummyTable[0].push_back(dummy);
-
-            dummy = {(MoveTableX[0] + MoveTableR[0] + 100) * flagZone,
-                     MoveTableY[0] - 1000,
-                     0,
-                     false,
-                     180,
-                     0};
-            dummyTable[0].push_back(dummy);
-
-            PointTable.insert(PointTable.begin() + PointTwoTableFin,
-                              dummyTable[0].begin(), dummyTable[0].end());
-          } else {
-            dummy = {(MoveTableX[0] - MoveTableR[0] - 100) * flagZone,
-                     MoveTableY[0] - 1000,
-                     180,
-                     false,
-                     0,
-                     0};
-            dummyTable[1].push_back(dummy);
-
-            dummy = {(MoveTableX[0] + MoveTableR[0]) * flagZone,
-                     MoveTableY[0],
-                     -90,
-                     false,
-                     2,
-                     2};
-            dummyTable[1].push_back(dummy);
-
-            dummy = {(MoveTableX[0] + MoveTableR[0] + 100) * flagZone,
-                     MoveTableY[0] - 1000,
-                     180,
-                     false,
-                     0,
-                     0};
-            dummyTable[1].push_back(dummy);
-
-            PointTable.insert(PointTable.begin() + PointTwoTableFin,
-                              dummyTable[1].begin(), dummyTable[1].end());
-          }
-        }
-        */
-
         goal = PointTable.at(pointCount);
         yawGoal = goal.yaw;
+
         phase = 1;
         if ((int)PointTable.size() != pointCount + 1) {
           ++pointCount;
@@ -418,6 +339,12 @@ start:
     }
 
     case 1: {
+      velocityF = hypot(goal.y - nowPoint[1], goal.x - nowPoint[0]);
+      angleF = atan2(goal.y - nowPoint[1], goal.x - nowPoint[0]);
+      break;
+    }
+    case 2: {
+
       //-----------Guess Field----------
       deltaX = deltaY = 0;
       for (int i = 0; i < 3; ++i) {
@@ -450,72 +377,49 @@ start:
         stop = start;
       }
 
-      if (goal.table == 5) {
-        if (velocityF < HomeMin && velocityF > -HomeMin) {
-          velocityF = 0;
-          flagNear = true;
-        } else if (velocityF < HomeMax) {
-          velocityF = HomeSpeadMax - HomeReg * log(HomeMax - velocityF + 1);
-          flagNear = true;
-          stop = start;
+      velocityGoal[0] = velocityF * cos(angleF);
+      velocityGoal[1] = velocityF * sin(angleF);
+      accelStart = start;
+      for (int i = 0; i < 2; ++i) {
+        accelTime[i][0] =
+            M_PI * (velocityGoal[i] - velocityOut[i]) / (2 * AccelMax);
+        accelTime[i][1] = (fabs((double)velocityGoal[i] - velocityOut[i]) -
+                           (AccelMax + velocityAccel[i]) / 2 * accelTime[i][0] -
+                           AccelMax * AccelMax / 2 / Jerk) /
+                          AccelMax;
+        accelTime[i][2] = AccelMax / Jerk;
+        if (accelTime[i][1] < 0) {
+          accelTime[i][1] *= -1;
+          accelTime[i][0] +=
+              check((AccelMax - velocityAccel[i]) / (2 * accelTime[i][0]),
+                    AccelMax, -AccelMax * accelTime[i][1] / 2);
+          accelTime[i][2] += check(AccelMax / (2 * accelTime[i][2]), AccelMax,
+                                   -AccelMax * accelTime[i][1] / 2);
+          accelTime[i][2] += accelTime[i][0];
+          accelTime[i][1] = accelTime[i][0];
         } else {
-          velocityF = HomeSpeadMax;
-          flagNear = false;
-          stop = start;
+          accelTime[i][1] += accelTime[i][0];
+          accelTime[i][2] += accelTime[i][1];
+        }
+        if (velocityGoal[i] > velocityOut[i]) {
+          accelPolar[i] = 1;
+        } else {
+          accelPolar[i] = -1;
+        }
+
+        if (start - accelStart < accelTime[i][0]) {
+          velocityAccel[i] += Jerk * delta;
+          velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
+        } else if (start - accelStart < accelTime[i][1]) {
+          velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
+        } else if (start - accelStart <= accelTime[i][2]) {
+          velocityAccel[i] -= Jerk * delta;
+          velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
         }
       }
-
-      if (flagNear) {
-        velocityOut[0] = velocityF * cos(angleF);
-        velocityOut[1] = velocityF * sin(angleF);
-        velocityR = velocityF;
-        angleR = angleF - flagZone * yaw * M_PI / 180;
-      } else {
-        velocityGoal[0] = velocityF * cos(angleF);
-        velocityGoal[1] = velocityF * sin(angleF);
-        accelStart = start;
-        for (int i = 0; i < 2; ++i) {
-          accelTime[i][0] =
-              M_PI * (velocityGoal[i] - velocityOut[i]) / (2 * AccelMax);
-          accelTime[i][1] =
-              (fabs((double)velocityGoal[i] - velocityOut[i]) -
-               (AccelMax + velocityAccel[i]) / 2 * accelTime[i][0] -
-               AccelMax * AccelMax / 2 / Jerk) /
-              AccelMax;
-          accelTime[i][2] = AccelMax / Jerk;
-          if (accelTime[i][1] < 0) {
-            accelTime[i][1] *= -1;
-            accelTime[i][0] +=
-                check((AccelMax - velocityAccel[i]) / (2 * accelTime[i][0]),
-                      AccelMax, -AccelMax * accelTime[i][1] / 2);
-            accelTime[i][2] += check(AccelMax / (2 * accelTime[i][2]), AccelMax,
-                                     -AccelMax * accelTime[i][1] / 2);
-            accelTime[i][2] += accelTime[i][0];
-            accelTime[i][1] = accelTime[i][0];
-          } else {
-            accelTime[i][1] += accelTime[i][0];
-            accelTime[i][2] += accelTime[i][1];
-          }
-          if (velocityGoal[i] > velocityOut[i]) {
-            accelPolar[i] = 1;
-          } else {
-            accelPolar[i] = -1;
-          }
-
-          if (start - accelStart < accelTime[i][0]) {
-            velocityAccel[i] += Jerk * delta;
-            velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
-          } else if (start - accelStart < accelTime[i][1]) {
-            velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
-          } else if (start - accelStart <= accelTime[i][2]) {
-            velocityAccel[i] -= Jerk * delta;
-            velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
-          }
-        }
-        velocityR = hypot(velocityOut[0], velocityOut[1]);
-        angleR =
-            atan2(velocityOut[1], velocityOut[0]) - flagZone * yaw * M_PI / 180;
-      }
+      velocityR = hypot(velocityOut[0], velocityOut[1]);
+      angleR =
+          atan2(velocityOut[1], velocityOut[0]) - flagZone * yaw * M_PI / 180;
 
       // moment from Lock Angle bia PID
       switch (goal.table) {
@@ -660,15 +564,4 @@ inline bool yaw_check(int goal, int now) {
     return 1;
   }
   return 0;
-}
-
-void move_plan(promise<void> p, int MoveTableX[3]) {
-  string CSFile("CS.txt");
-  /*
-  while (readRed(CSFile, MoveTableX) == -1) {
-    sleep(2);
-  }
-
-  p.set_value();
-  */
 }
