@@ -39,9 +39,7 @@ inline double wheel_Func(double rad);
 inline double check(double a, double b, double c);
 inline bool yaw_check(int goal, int now);
 constexpr double ErrorYaw = 3;
-inline void finish();
-void move_plan(promise<vector<struct pointinfo>> p, int MoveTableX[3],
-               int *flagZone);
+void move_plan(promise<void> p, int MoveTableX[3]);
 
 int main(void) {
   MotorSerial ms;
@@ -90,7 +88,7 @@ int main(void) {
   long double delta, start = 0;
 
   //----------Shoot---------
-  constexpr int ShootR = 300, ShootL = 303;
+  constexpr int ShootR = 291, ShootL = 293;
   constexpr int ShootRID = 5, ShootLID = 6;
   int shineR = 31, shineL = 29;
   bool flagShootR = false;
@@ -98,16 +96,6 @@ int main(void) {
   ms.send(1, 31, ShootL);
   ms.send(1, 32, 400);
   ms.send(1, 32, 400);
-
-  // bia UltraSonic
-  constexpr int MeasureCal = 7;
-  constexpr int MeasureID[3] = {1, 2, 3};
-  constexpr int MeasureL0 = 535, MeasureR0 = 535, MeasureY0 = 535;
-  constexpr int UltraSpead = 100;
-  constexpr int UltraSideR = 535 + 200 + 400;
-  // constexpr double UltraReg = 1.05;
-  vector<int> measure[3];
-  double measureL = 0, measureR = 0, measureY = 0;
 
   //----------Plan Root----------
   vector<struct pointinfo> PointTable;
@@ -124,13 +112,14 @@ int main(void) {
 
   // MoveTable
   constexpr int MoveTableY[3] = {5500, 6500, 7500};
-  int MoveTableX[3] = {3500, 3500, 3500};
-  promise<vector<struct pointinfo>> CSp;
-  future<vector<struct pointinfo>> CSf = CSp.get_future();
-  thread CSth(move_plan, move(CSp), MoveTableX, &flagZone);
+  int MoveTableX[3] = {3250, 3250, 3250};
+  constexpr int MoveTableR[3] = {1295, 1290, 1290};
+  promise<void> CSp;
+  future<void> CSf = CSp.get_future();
+  thread CSth(move_plan, move(CSp), MoveTableX);
 
   // Home
-  constexpr int HomeMin = 20, HomeSpead = 15, HomeSpeadMax = 170, HomeMax = 400;
+  constexpr int HomeMin = 20, HomeSpead = 15, HomeSpeadMax = 190, HomeMax = 400;
   constexpr double HomeReg =
       (HomeSpeadMax - HomeSpead) / log(HomeMax - HomeMin + 1);
 
@@ -140,13 +129,14 @@ int main(void) {
   //----------Movement----------
   // OutPut
   constexpr int WheelID[3] = {1, 2, 3};
-  constexpr int SpeedMax = 170;
+  constexpr int SpeedMax = 100;
   constexpr int SpeedMin = 10;
+  constexpr double SpeadLate = 4640 / 240;
   constexpr int MomentMax = 25;
   constexpr double WheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
   double wheelSlow;
   double wheelGoal[3] = {};
-  constexpr int ErrorMin = 20, ErrorSpead = 15, ErrorMax = 700;
+  constexpr int ErrorMin = 10, ErrorSpead = 25, ErrorMax = 1800;
   constexpr double ErrorReg =
       (SpeedMax - ErrorSpead) / log(ErrorMax - ErrorMin + 1);
 
@@ -157,13 +147,14 @@ int main(void) {
   // WheelSpeed Control from  Accel
   // Result: velocityOut[PWM], Goal: velocityGoal[PWM],
   // Control:velocityOut[PWM]
+  // constexpr double AccelMax = 150, Jerk = 205;
   constexpr double AccelMax = 150, Jerk = 205;
   double velocityGoal[2] = {}, velocityAccel[2] = {}, velocityOut[2] = {};
   long double accelTime[2][3] = {{}, {}}, accelStart = 0;
   int accelPolar[2] = {};
   bool flagNear = false;
   long double stop = 0;
-  constexpr double StopTime = 0.5;
+  constexpr double StopTime = 1.0;
 
   // Lock Angle bia PID
   // Result: yaw[degree], Goal: yawLock[degree], Control:
@@ -174,11 +165,14 @@ int main(void) {
   constexpr double yawProp = 7.2, yawInt = 51.42, yawDeff = 0.252;
   // constexpr double yawProp = 10, yawInt = 185.4, yawDeff = 0.672;
 
+  gpioWrite(BCheck, 1);
   //----------Calibration----------
-  gpioWrite(LEDCal, 1);
   while (1) {
-    if (gpioRead(CheckCal) && (gpioRead(CheckRed) || gpioRead(CheckBlue))) {
-      break;
+    if (gpioRead(CheckCal)) {
+      gpioWrite(LEDCal, 1);
+      if (gpioRead(CheckRed) || gpioRead(CheckBlue)) {
+        break;
+      }
     }
   }
   gpioWrite(LEDCal, 0);
@@ -226,98 +220,70 @@ int main(void) {
 
   //----------Plan Root----------
   struct pointinfo dummyPoint;
-  /*
-  // Turn Table
-  for (int i = 0; i < TwoTableDiv - 2; PointTwoTableFin = i, ++i) {
-    dummyPoint.yaw = (270 + i * 360 / TwoTableDiv) % 360;
-    dummyPoint.x =
-        (TwoTableX + TwoTableR * sin(dummyPoint.yaw * M_PI / 180)) * flagZone;
-    dummyPoint.y = TwoTableY - TwoTableR * cos(dummyPoint.yaw * M_PI / 180);
-    dummyPoint.table = 1;
-    dummyPoint.ultra = 0;
-
-    if ((i / 2) % 2 == 0) {
-      dummyPoint.shoot = true;
-    } else {
-      dummyPoint.shoot = false;
-    }
-
-    if (i == 0) {
-      dummyPoint.table = 0;
-    }
-
-    if (dummyPoint.yaw % 90 == 0) {
-      struct pointinfo dummyUltra = dummyPoint;
-      dummyUltra.x =
-          (TwoTableX + UltraSideR * sin(dummyUltra.yaw * M_PI / 180)) *
-          flagZone;
-      dummyUltra.y = TwoTableY - UltraSideR * cos(dummyUltra.yaw * M_PI / 180);
-      dummyUltra.ultra = 1;
-      dummyUltra.shoot = false;
-      PointTable.push_back(dummyUltra);
-
-      dummyPoint.ultra = 2;
-    }
-    PointTable.push_back(dummyPoint);
-  }
-  */
-  // Square Table
-  for (int i = 0; i < TwoTableDiv; PointTwoTableFin = i, ++i) {
-    dummyPoint.yaw = (270 + i * 360 / TwoTableDiv) % 360;
-    dummyPoint.x =
-        (TwoTableX + TwoTableR * sin(dummyPoint.yaw * M_PI / 180)) * flagZone;
-    dummyPoint.y = TwoTableY - TwoTableR * cos(dummyPoint.yaw * M_PI / 180);
-    dummyPoint.table = 1;
-    dummyPoint.ultra = 0;
-
-    if (i % 2 == 0) {
-      dummyPoint.shoot = true;
-    } else {
-      dummyPoint.shoot = false;
-    }
-
-    if (i == 0) {
-      dummyPoint.table = 0;
-    }
-
-    if (dummyPoint.yaw % 90 == 0) {
-      struct pointinfo dummyUltra = dummyPoint;
-      dummyUltra.x =
-          (TwoTableX + UltraSideR * sin(dummyUltra.yaw * M_PI / 180)) *
-          flagZone;
-      dummyUltra.y = TwoTableY - UltraSideR * cos(dummyUltra.yaw * M_PI / 180);
-      dummyUltra.ultra = 1;
-      dummyUltra.shoot = false;
-      PointTable.push_back(dummyUltra);
-
-      dummyPoint.ultra = 2;
-    }
-    if ((dummyPoint.yaw / 90) % 2 == 1) {
-      PointTable.push_back(dummyPoint);
-
-      dummyPoint.yaw = (270 + i * 360 / TwoTableDiv) % 360;
-      dummyPoint.x =
-          (TwoTableX + (TwoTableR + 100) * sin(dummyPoint.yaw * M_PI / 180)) *
-          flagZone;
-      dummyPoint.y =
-          TwoTableY - (TwoTableR + 100) * cos(dummyPoint.yaw * M_PI / 180);
-      dummyPoint.table = 1;
-      dummyPoint.ultra = 2;
-    }
-    PointTable.push_back(dummyPoint);
-  }
-
-  dummyPoint = {firstX * flagZone, MoveTableY[0] - 1000, 180, false, 0, 0};
+  dummyPoint = {500 * flagZone, TwoTableY, (int)firstDeg, false, 0, 0};
   PointTable.push_back(dummyPoint);
 
-  dummyPoint = {
-      (firstX - 100) * flagZone, firstY - 500, (int)firstDeg, false, 5, 0};
+  dummyPoint = {(TwoTableX - TwoTableR) * flagZone,
+                TwoTableY,
+                (int)firstDeg,
+                false,
+                0,
+                0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {500 * flagZone, TwoTableY, (int)firstDeg, false, 0, 0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {500 * flagZone, MoveTableY[0], (int)firstDeg, false, 0, 0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {(MoveTableX[0] - MoveTableR[0]) * flagZone,
+                MoveTableY[0],
+                (int)firstDeg,
+                false,
+                0,
+                0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {500 * flagZone, MoveTableY[0], (int)firstDeg, false, 0, 0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {500 * flagZone, MoveTableY[1], (int)firstDeg, false, 0, 0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {(MoveTableX[1] - MoveTableR[1]) * flagZone,
+                MoveTableY[1],
+                (int)firstDeg,
+                false,
+                0,
+                0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {500 * flagZone, MoveTableY[1], (int)firstDeg, false, 0, 0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {500 * flagZone, MoveTableY[2], (int)firstDeg, false, 0, 0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {(MoveTableX[2] - MoveTableR[2]) * flagZone,
+                MoveTableY[2],
+                (int)firstDeg,
+                false,
+                0,
+                0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {500 * flagZone, MoveTableY[2], (int)firstDeg, false, 0, 0};
+  PointTable.push_back(dummyPoint);
+
+  dummyPoint = {firstX * flagZone, firstY, (int)firstDeg, false, 0, 0};
   PointTable.push_back(dummyPoint);
 
   for (auto p : PointTable) {
     cout << p.x << ", " << p.y << ", " << p.yaw << endl;
   }
 
+start:
   sleep(1);
   if (flagZone == 1) {
     gpioWrite(ZoneRed, 1);
@@ -328,11 +294,8 @@ int main(void) {
     while (!gpioRead(CheckBlue)) {
     }
   }
-  ms.send(ShootRID, 10, ShootR);
-  ms.send(ShootLID, 10, ShootL);
 
   cout << "Main Start" << endl;
-  gpioWrite(BCheck, 1);
   clock_gettime(CLOCK_REALTIME, &now);
   gyro.start(firstDeg * flagZone);
   phase = 0;
@@ -351,32 +314,6 @@ int main(void) {
     gyro.updata();
     yaw = gyro.yaw * flagZone;
 
-    // UltraSonic
-    for (int i = 0; i < 3; ++i) {
-      int dummyM = ms.send(MeasureID[i], 20, 1);
-      if (dummyM > 10) {
-        measure[i].push_back(dummyM);
-      }
-      if (measure[i].size() == MeasureCal) {
-        int dummySum = 0;
-        for (auto x : measure[i]) {
-          dummySum += x;
-        }
-        switch (i) {
-        case 0:
-          measureY = (double)dummySum / MeasureCal * 10 + MeasureY0;
-          break;
-        case 1:
-          measureL = (double)dummySum / MeasureCal * 10 + MeasureL0;
-          break;
-        case 2:
-          measureR = (double)dummySum / MeasureCal * 10 + MeasureR0;
-          break;
-        }
-        measure[i].clear();
-      }
-    }
-
     // RotaryInc
     for (int i = 0; i < 3; ++i) {
       wheelInPrev[i] = wheelIn[i];
@@ -386,25 +323,89 @@ int main(void) {
     }
 
     //----------Reset----------
+    if (!gpioRead(CheckCal) && gpioRead(CheckReset)) {
+      goto finish;
+    }
+
     if (gpioRead(CheckReset)) {
       gyro.resetYaw(firstDeg * flagZone);
       nowPoint[0] = firstX * flagZone;
       nowPoint[1] = firstY;
       phase = 0;
       pointCount = 0;
-      if (!gpioRead(CheckCal)) {
-        goto finish;
-      }
+      cout << "Reset" << endl;
+      ms.send(255, 255, 0);
+      goto start;
     }
 
     switch (phase) {
     case 0: {
       if ((ms.send(ShootRID, 10, 0) == 2) && (ms.send(ShootLID, 10, 0) == 2)) {
-        if (PointTwoTableFin + 1 == pointCount) {
-          vector<struct pointinfo> dummy = future.get();
-          PointTable.insert(PointTable.begin() + PointTwoTableFin + 1,
-                            dummy.begin(), dummy.end());
+        /*
+        if (PointTwoTableFin == pointCount) {
+          CSf.get();
+          cout << "Move Plan" << endl;
+          struct pointinfo dummy;
+          vector<struct pointinfo> dummyTable[2];
+
+          if (MoveTableX[0] + MoveTableR[0] + 500 <= 5000) {
+            dummy = {(MoveTableX[0] + MoveTableR[0] + 100) * flagZone,
+                     MoveTableY[0] - 1000,
+                     180,
+                     false,
+                     0,
+                     0};
+            dummyTable[0].push_back(dummy);
+
+            dummy = {(MoveTableX[0] + MoveTableR[0]) * flagZone,
+                     MoveTableY[0],
+                     90,
+                     false,
+                     2,
+                     2};
+            dummyTable[0].push_back(dummy);
+
+            dummy = {(MoveTableX[0] + MoveTableR[0] + 100) * flagZone,
+                     MoveTableY[0] - 1000,
+                     0,
+                     false,
+                     180,
+                     0};
+            dummyTable[0].push_back(dummy);
+
+            PointTable.insert(PointTable.begin() + PointTwoTableFin,
+                              dummyTable[0].begin(), dummyTable[0].end());
+          } else {
+            dummy = {(MoveTableX[0] - MoveTableR[0] - 100) * flagZone,
+                     MoveTableY[0] - 1000,
+                     180,
+                     false,
+                     0,
+                     0};
+            dummyTable[1].push_back(dummy);
+
+            dummy = {(MoveTableX[0] + MoveTableR[0]) * flagZone,
+                     MoveTableY[0],
+                     -90,
+                     false,
+                     2,
+                     2};
+            dummyTable[1].push_back(dummy);
+
+            dummy = {(MoveTableX[0] + MoveTableR[0] + 100) * flagZone,
+                     MoveTableY[0] - 1000,
+                     180,
+                     false,
+                     0,
+                     0};
+            dummyTable[1].push_back(dummy);
+
+            PointTable.insert(PointTable.begin() + PointTwoTableFin,
+                              dummyTable[1].begin(), dummyTable[1].end());
+          }
         }
+        */
+
         goal = PointTable.at(pointCount);
         yawGoal = goal.yaw;
         phase = 1;
@@ -428,65 +429,6 @@ int main(void) {
       nowPoint[0] -= deltaL * cos(deltaA + flagZone * yaw * M_PI / 180);
       nowPoint[1] -= deltaL * sin(deltaA + flagZone * yaw * M_PI / 180);
 
-      // bia UltraSonic
-      switch (goal.ultra) {
-      case 1: {
-        int dummyY = measureY + 400;
-        if (yaw_check(goal.yaw, yaw) && flagNear) {
-          int index = (goal.yaw / 90) % 2;
-          int signe = goal.yaw / 180 - !(goal.yaw / 180);
-          if (flagZone == 1) {
-            if (dummyY < measureR && dummyY < measureL) {
-              nowPoint[index] = goal.x * !index + goal.y * index;
-            } else if (dummyY < measureR) {
-              nowPoint[index] += UltraSpead * delta * (!index + index) * -signe;
-            } else if (dummyY < measureL) {
-              nowPoint[index] -= UltraSpead * delta * (!index + index) * -signe;
-            }
-          }
-        }
-      }
-      case 2: {
-        switch (goal.table) {
-        case 1: {
-          int dummyY = measureY + 400;
-          int index = (goal.yaw / 90) % 2;
-          int signe = goal.yaw / 180 - !(goal.yaw / 180);
-          if (yaw_check(goal.yaw, yaw)) {
-            if (nowPoint[index] >
-                    TwoTableX * !index * flagZone + TwoTableY * index - 350 &&
-                nowPoint[index] <
-                    TwoTableX * !index * flagZone + TwoTableY * index + 350) {
-              nowPoint[!index] =
-                  (TwoTableX - signe * dummyY) * index * flagZone +
-                  (TwoTableY + signe * dummyY) * !index;
-            }
-          }
-          break;
-        }
-        case 2: {
-          int dummyY = measureY + 250;
-          if (yaw_check(goal.yaw, yaw) && flagNear) {
-            if (nowPoint[1] > TwoTableY - 200 &&
-                nowPoint[1] < TwoTableY + 200) {
-              nowPoint[0] = (MoveTableX[0] - dummyY) * flagZone;
-            }
-          }
-          break;
-        }
-        }
-      }
-      case 5: {
-        if (yaw_check(goal.yaw, yaw) && flagNear) {
-          int dummyY = measureL + 250;
-          if (nowPoint[1] > FixTableY - 200 && nowPoint[1] < FixTableY + 200) {
-            nowPoint[0] = (FixTableX - dummyY) * flagZone;
-          }
-        }
-        break;
-      }
-      }
-
       velocityF = hypot(goal.y - nowPoint[1], goal.x - nowPoint[0]);
       angleF = atan2(goal.y - nowPoint[1], goal.x - nowPoint[0]);
 
@@ -497,8 +439,10 @@ int main(void) {
         velocityF = 0;
         flagNear = true;
       } else if (velocityF < ErrorMax) {
-        velocityF = SpeedMax - ErrorReg * log(ErrorMax - velocityF + 1);
-        flagNear = true;
+        // velocityF = SpeedMax - ErrorReg * log(ErrorMax - velocityF + 1);
+        // flagNear = true;
+        velocityF = ErrorSpead;
+        flagNear = false;
         stop = start;
       } else {
         velocityF = SpeedMax;
@@ -531,7 +475,8 @@ int main(void) {
         velocityGoal[1] = velocityF * sin(angleF);
         accelStart = start;
         for (int i = 0; i < 2; ++i) {
-          accelTime[i][0] = (AccelMax - velocityAccel[i]) / Jerk;
+          accelTime[i][0] =
+              M_PI * (velocityGoal[i] - velocityOut[i]) / (2 * AccelMax);
           accelTime[i][1] =
               (fabs((double)velocityGoal[i] - velocityOut[i]) -
                (AccelMax + velocityAccel[i]) / 2 * accelTime[i][0] -
@@ -592,7 +537,6 @@ int main(void) {
       moment = yawProp * yawDelta + yawInt * yawDelta * delta +
                yawDeff * (yawDelta - yawPrev) / delta;
       moment *= -1 * flagZone;
-      cout << yawDelta << ", " << moment << endl;
 
       if (moment > MomentMax) {
         moment = MomentMax;
@@ -624,6 +568,7 @@ int main(void) {
       cout << start << ", ";
       cout << goal.x << ", " << goal.y << ", " << goal.yaw << ", ";
       cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << ", ";
+      cout << velocityOut[0] << ", " << velocityOut[1];
       /*
       for (int i = 0; i < 3; ++i) {
         cout << (int)wheelGoal[i] << ", ";
@@ -636,11 +581,15 @@ int main(void) {
       */
       cout << endl;
 
+      wheelGoal[0] = 240;
+      cout << start << ", " << wheelIn[0] << endl;
       for (int i = 0; i < 3; ++i) {
         ms.send(WheelID[i], 2, wheelGoal[i]);
       }
 
-      if (start - stop > StopTime) {
+      if (start - stop > StopTime && goal.shoot) {
+        phase = 2;
+      } else if (start - stop > 0.5 && !goal.shoot) {
         phase = 2;
       }
       break;
@@ -713,26 +662,13 @@ inline bool yaw_check(int goal, int now) {
   return 0;
 }
 
-void move_plan(promise<vector<struct pointinfo>> p, int MoveTableX[3],
-               int *flagZone) {
-  constexpr int MoveTableY[3] = {5500, 6500, 7500};
-  constexpr int MoveTableR[3] = {1200, 1200, 1200};
+void move_plan(promise<void> p, int MoveTableX[3]) {
   string CSFile("CS.txt");
+  /*
   while (readRed(CSFile, MoveTableX) == -1) {
-    sleep(1);
+    sleep(2);
   }
-  struct pointinfo dummy;
-  vector<struct pointinfo> send;
 
-  send.push_back(dummy);
-
-  dummy = {(MoveTableX[0] - MoveTableR[3]) * (*flagZone),
-           MoveTableY[0],
-           -90,
-           true,
-           2,
-           2};
-  send.push_back(dummy);
-
-  p.set_value(send);
+  p.set_value();
+  */
 }
