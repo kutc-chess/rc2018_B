@@ -93,16 +93,12 @@ int main(void) {
 
   //----------Plan Root----------
   vector<struct pointinfo> PointTable;
-  int pointCount = 0, PointTwoTableFin;
+  int pointCount = 0;
   struct pointinfo goal;
-
-  // FixTable
-  constexpr int FixTableX = 3000, FixTableY = 1500;
 
   // TwoTable
   constexpr int TwoTableX = 3000, TwoTableY = 3500, TwoTableR = 1295;
   // constexpr int TwoTableDiv = 12;
-  constexpr int TwoTableDiv = 8;
 
   // MoveTable
   constexpr int MoveTableY[3] = {5500, 6500, 7500};
@@ -340,7 +336,12 @@ start:
 
     case 1: {
       velocityF = hypot(goal.y - nowPoint[1], goal.x - nowPoint[0]);
+      if (-ErrorMin < velocityF && velocityF < ErrorMin) {
+        phase = 3;
+      }
       angleF = atan2(goal.y - nowPoint[1], goal.x - nowPoint[0]);
+      cout << "Plan Set" << endl;
+      phase = 2;
       break;
     }
     case 2: {
@@ -364,16 +365,12 @@ start:
       // WheelSpeed Control from Accel
       if (velocityF < ErrorMin && velocityF > -ErrorMin) {
         velocityF = 0;
-        flagNear = true;
       } else if (velocityF < ErrorMax) {
         // velocityF = SpeedMax - ErrorReg * log(ErrorMax - velocityF + 1);
-        // flagNear = true;
         velocityF = ErrorSpead;
-        flagNear = false;
         stop = start;
       } else {
         velocityF = SpeedMax;
-        flagNear = false;
         stop = start;
       }
 
@@ -485,20 +482,18 @@ start:
       */
       cout << endl;
 
-      wheelGoal[0] = 240;
-      cout << start << ", " << wheelIn[0] << endl;
       for (int i = 0; i < 3; ++i) {
         ms.send(WheelID[i], 2, wheelGoal[i]);
       }
 
       if (start - stop > StopTime && goal.shoot) {
-        phase = 2;
+        phase = 1;
       } else if (start - stop > 0.5 && !goal.shoot) {
-        phase = 2;
+        phase = 1;
       }
       break;
     }
-    case 2: {
+    case 3: {
       // Shoot
       if (goal.shoot) {
         if (ms.send(ShootLID, 10, 0) == 2 && !flagShootR) {
@@ -526,7 +521,6 @@ finish:
   gpioWrite(ZoneBlue, 0);
   gpioWrite(LEDCal, 0);
   gpioWrite(LEDReset, 0);
-  CSth.detach();
   return restart;
 }
 
