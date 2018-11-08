@@ -94,6 +94,7 @@ int main(void) {
   //----------Plan Root----------
   vector<struct pointinfo> PointTable;
   int pointCount = 0;
+  int setCount = 0;
   struct pointinfo goal;
 
   // TwoTable
@@ -102,25 +103,23 @@ int main(void) {
 
   // MoveTable
   constexpr int MoveTableY[3] = {5500, 6500, 7500};
-  int MoveTableX[3] = {3250, 3250, 3250};
-  constexpr int MoveTableR[3] = {1295, 1290, 1290};
+  int MoveTableX[3] = {2250, 2250, 2250};
+  constexpr int MoveTableR[3] = {1290, 1290, 1290};
 
   // bia Field View, also yawGoal = moment
-  double velocityF, angleF;
+  double lengthF, angleF, velocityF;
 
   //----------Movement----------
   // OutPut
   constexpr int WheelID[3] = {1, 2, 3};
-  constexpr int SpeedMax = 100;
-  constexpr int SpeedMin = 10;
-  constexpr double SpeadLate = 4640 / 240;
+  constexpr int SpeadMax = 4600;
+  constexpr int SpeedMin = 200;
+  constexpr double SpeadLate = 240.0 / 4600;
   constexpr int MomentMax = 25;
   constexpr double WheelDeg[3] = {0, M_PI_3 * 2, -M_PI_3 * 2};
   double wheelSlow;
   double wheelGoal[3] = {};
-  constexpr int ErrorMin = 10, ErrorSpead = 25, ErrorMax = 1800;
-  constexpr double ErrorReg =
-      (SpeedMax - ErrorSpead) / log(ErrorMax - ErrorMin + 1);
+  constexpr int ErrorMin = 10, ErrorSpead = 350;
 
   // Input Robot View
   double velocityR = 0, angleR, moment;
@@ -129,9 +128,10 @@ int main(void) {
   // WheelSpeed Control from  Accel
   // Result: velocityOut[PWM], Goal: velocityGoal[PWM],
   // Control:velocityOut[PWM]
-  // constexpr double AccelMax = 150, Jerk = 205;
-  constexpr double AccelMax = 150, Jerk = 205;
-  double velocityGoal[2] = {}, velocityAccel[2] = {}, velocityOut[2] = {};
+  constexpr double AccelMax = 2100;
+  double velocityGoal[2] = {}, velocityAccel[2] = {}, velocityOut[2] = {},
+         velocityDelta[2] = {};
+  bool velocityDone[2] = {};
   long double accelTime[2][3] = {{}, {}}, accelStart = 0;
   int accelPolar[2] = {};
   long double stop = 0;
@@ -163,7 +163,7 @@ int main(void) {
 
   //----------IncRotary----------
   constexpr int Range = 256 * 2;
-  constexpr double WheelCirc = 101.6 * M_PI;
+  constexpr double WheelCirc = 100.6 * M_PI;
   rotaryInc rotary[3] = {rotaryInc(27, 17, true), rotaryInc(11, 9, true),
                          rotaryInc(10, 22, true)};
   int wheelIn[3] = {};
@@ -201,18 +201,11 @@ int main(void) {
 
   //----------Plan Root----------
   struct pointinfo dummyPoint;
-  dummyPoint = {500 * flagZone, TwoTableY, (int)firstDeg, false, 0, 0};
-  PointTable.push_back(dummyPoint);
+  // dummyPoint = {500 * flagZone, TwoTableY, (int)firstDeg, false, 0, 0};
+  // PointTable.push_back(dummyPoint);
 
-  dummyPoint = {(TwoTableX - TwoTableR) * flagZone,
-                TwoTableY,
-                (int)firstDeg,
-                false,
-                0,
-                0};
-  PointTable.push_back(dummyPoint);
-
-  dummyPoint = {500 * flagZone, TwoTableY, (int)firstDeg, false, 0, 0};
+  dummyPoint = {
+      (TwoTableX - TwoTableR) * flagZone, TwoTableY, (int)firstDeg, true, 0, 0};
   PointTable.push_back(dummyPoint);
 
   dummyPoint = {500 * flagZone, MoveTableY[0], (int)firstDeg, false, 0, 0};
@@ -221,13 +214,13 @@ int main(void) {
   dummyPoint = {(MoveTableX[0] - MoveTableR[0]) * flagZone,
                 MoveTableY[0],
                 (int)firstDeg,
-                false,
+                true,
                 0,
                 0};
   PointTable.push_back(dummyPoint);
 
-  dummyPoint = {500 * flagZone, MoveTableY[0], (int)firstDeg, false, 0, 0};
-  PointTable.push_back(dummyPoint);
+  // dummyPoint = {500 * flagZone, MoveTableY[0], (int)firstDeg, false, 0, 0};
+  // PointTable.push_back(dummyPoint);
 
   dummyPoint = {500 * flagZone, MoveTableY[1], (int)firstDeg, false, 0, 0};
   PointTable.push_back(dummyPoint);
@@ -235,13 +228,13 @@ int main(void) {
   dummyPoint = {(MoveTableX[1] - MoveTableR[1]) * flagZone,
                 MoveTableY[1],
                 (int)firstDeg,
-                false,
+                true,
                 0,
                 0};
   PointTable.push_back(dummyPoint);
 
-  dummyPoint = {500 * flagZone, MoveTableY[1], (int)firstDeg, false, 0, 0};
-  PointTable.push_back(dummyPoint);
+  // dummyPoint = {500 * flagZone, MoveTableY[1], (int)firstDeg, false, 0, 0};
+  // PointTable.push_back(dummyPoint);
 
   dummyPoint = {500 * flagZone, MoveTableY[2], (int)firstDeg, false, 0, 0};
   PointTable.push_back(dummyPoint);
@@ -249,7 +242,7 @@ int main(void) {
   dummyPoint = {(MoveTableX[2] - MoveTableR[2]) * flagZone,
                 MoveTableY[2],
                 (int)firstDeg,
-                false,
+                true,
                 0,
                 0};
   PointTable.push_back(dummyPoint);
@@ -303,6 +296,17 @@ start:
           (double)(wheelIn[i] - wheelInPrev[i]) * WheelCirc / (double)Range;
     }
 
+    //-----------Guess Field----------
+    deltaX = deltaY = 0;
+    for (int i = 0; i < 3; ++i) {
+      deltaX += MatrixPoint[0][i] * wheelSpeed[i];
+      deltaY += MatrixPoint[1][i] * wheelSpeed[i];
+    }
+    deltaL = hypot(deltaX, deltaY);
+    deltaA = atan2(deltaY, deltaX);
+    nowPoint[0] -= deltaL * cos(deltaA + flagZone * yaw * M_PI / 180);
+    nowPoint[1] -= deltaL * sin(deltaA + flagZone * yaw * M_PI / 180);
+
     //----------Reset----------
     if (!gpioRead(CheckCal) && gpioRead(CheckReset)) {
       goto finish;
@@ -325,94 +329,88 @@ start:
         goal = PointTable.at(pointCount);
         yawGoal = goal.yaw;
 
-        phase = 1;
         if ((int)PointTable.size() != pointCount + 1) {
           ++pointCount;
         }
+        phase = 1;
+        setCount = 0;
       }
 
       break;
     }
 
     case 1: {
-      velocityF = hypot(goal.y - nowPoint[1], goal.x - nowPoint[0]);
-      if (-ErrorMin < velocityF && velocityF < ErrorMin) {
+      lengthF = hypot(goal.y - nowPoint[1], goal.x - nowPoint[0]);
+      if ((-ErrorMin < lengthF && lengthF < ErrorMin) || setCount > 6) {
         phase = 3;
-      }
-      angleF = atan2(goal.y - nowPoint[1], goal.x - nowPoint[0]);
-      cout << "Plan Set" << endl;
-      phase = 2;
-      break;
-    }
-    case 2: {
-
-      //-----------Guess Field----------
-      deltaX = deltaY = 0;
-      for (int i = 0; i < 3; ++i) {
-        deltaX += MatrixPoint[0][i] * wheelSpeed[i];
-        deltaY += MatrixPoint[1][i] * wheelSpeed[i];
-      }
-      deltaL = hypot(deltaX, deltaY);
-      deltaA = atan2(deltaY, deltaX);
-      nowPoint[0] -= deltaL * cos(deltaA + flagZone * yaw * M_PI / 180);
-      nowPoint[1] -= deltaL * sin(deltaA + flagZone * yaw * M_PI / 180);
-
-      velocityF = hypot(goal.y - nowPoint[1], goal.x - nowPoint[0]);
-      angleF = atan2(goal.y - nowPoint[1], goal.x - nowPoint[0]);
-
-      //----------Movement----------
-      // Input
-      // WheelSpeed Control from Accel
-      if (velocityF < ErrorMin && velocityF > -ErrorMin) {
-        velocityF = 0;
-      } else if (velocityF < ErrorMax) {
-        // velocityF = SpeedMax - ErrorReg * log(ErrorMax - velocityF + 1);
-        velocityF = ErrorSpead;
-        stop = start;
+        break;
       } else {
-        velocityF = SpeedMax;
-        stop = start;
+        phase = 2;
+        ++setCount;
+      }
+      angleF = atan2(goal.y - nowPoint[1], goal.x - nowPoint[0]);
+      velocityF = sqrt(2 * AccelMax * lengthF / M_PI + pow(SpeedMin, 2));
+      if (velocityF > SpeadMax) {
+        velocityF = SpeadMax;
       }
 
       velocityGoal[0] = velocityF * cos(angleF);
       velocityGoal[1] = velocityF * sin(angleF);
+      double velocitySmall[2] = {ErrorSpead * cos(angleF),
+                                 ErrorSpead * sin(angleF)};
+      double dummylength[2] = {lengthF * fabs(cos(angleF)),
+                               lengthF * fabs(sin(angleF))};
       accelStart = start;
       for (int i = 0; i < 2; ++i) {
-        accelTime[i][0] =
-            M_PI * (velocityGoal[i] - velocityOut[i]) / (2 * AccelMax);
-        accelTime[i][1] = (fabs((double)velocityGoal[i] - velocityOut[i]) -
-                           (AccelMax + velocityAccel[i]) / 2 * accelTime[i][0] -
-                           AccelMax * AccelMax / 2 / Jerk) /
-                          AccelMax;
-        accelTime[i][2] = AccelMax / Jerk;
+        velocityDelta[i] = fabs(velocityGoal[i] - velocitySmall[i]);
+        velocityAccel[i] = 0;
+        accelTime[i][0] = accelTime[i][2] =
+            M_PI * velocityDelta[i] / 2 / AccelMax;
+        accelTime[i][1] =
+            (dummylength[i] -
+             2 * (pow(velocityGoal[i], 2) - pow(velocitySmall[i], 2)) * M_PI /
+                 4 / AccelMax) /
+            velocityGoal[i];
         if (accelTime[i][1] < 0) {
-          accelTime[i][1] *= -1;
-          accelTime[i][0] +=
-              check((AccelMax - velocityAccel[i]) / (2 * accelTime[i][0]),
-                    AccelMax, -AccelMax * accelTime[i][1] / 2);
-          accelTime[i][2] += check(AccelMax / (2 * accelTime[i][2]), AccelMax,
-                                   -AccelMax * accelTime[i][1] / 2);
-          accelTime[i][2] += accelTime[i][0];
-          accelTime[i][1] = accelTime[i][0];
-        } else {
-          accelTime[i][1] += accelTime[i][0];
-          accelTime[i][2] += accelTime[i][1];
+          accelTime[i][1] = 0;
         }
+
+        accelTime[i][1] += accelTime[i][0];
+        accelTime[i][2] += accelTime[i][1];
+
         if (velocityGoal[i] > velocityOut[i]) {
           accelPolar[i] = 1;
         } else {
           accelPolar[i] = -1;
         }
+        velocityOut[i] = velocitySmall[i];
+        velocityDone[i] = false;
+      }
 
-        if (start - accelStart < accelTime[i][0]) {
-          velocityAccel[i] += Jerk * delta;
-          velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
-        } else if (start - accelStart < accelTime[i][1]) {
-          velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
-        } else if (start - accelStart <= accelTime[i][2]) {
-          velocityAccel[i] -= Jerk * delta;
-          velocityOut[i] += accelPolar[i] * velocityAccel[i] * delta;
+      break;
+    }
+    case 2: {
+      //----------Movement----------
+      // Input
+      // WheelSpeed Control from Accel
+      double time = start - accelStart;
+      for (int i = 0; i < 2; ++i) {
+        if (time < accelTime[i][0]) {
+          velocityAccel[i] =
+              AccelMax * sin(2 * AccelMax / velocityDelta[i] * time) * delta;
+          velocityOut[i] += accelPolar[i] * velocityAccel[i];
+        } else if (time < accelTime[i][1]) {
+        } else if (time <= accelTime[i][2]) {
+          velocityAccel[i] = -AccelMax * sin(2 * AccelMax / velocityDelta[i] *
+                                             (time - accelTime[i][1])) *
+                             delta;
+          velocityOut[i] += accelPolar[i] * velocityAccel[i];
+        } else if (time > accelTime[i][2]) {
+          velocityDone[i] = true;
         }
+      }
+      if (velocityDone[0] && velocityDone[1]) {
+        phase = 1;
       }
       velocityR = hypot(velocityOut[0], velocityOut[1]);
       angleR =
@@ -444,16 +442,17 @@ start:
       } else if (moment < -MomentMax) {
         moment = -MomentMax;
       }
+      moment /= SpeadLate;
 
       // WheelOut
-      int dummyMax = SpeedMax;
+      int dummyMax = SpeadMax;
       for (int i = 0; i < 3; ++i) {
         wheelGoal[i] = velocityR * wheel_Func(angleR + WheelDeg[i]) + moment;
         if (abs(wheelGoal[i]) > dummyMax) {
           dummyMax = abs(wheelGoal[i]);
         }
       }
-      wheelSlow = SpeedMax / (double)dummyMax;
+      wheelSlow = SpeadMax / (double)dummyMax;
 
       for (int i = 0; i < 3; ++i) {
         wheelGoal[i] *= wheelSlow;
@@ -482,24 +481,37 @@ start:
       */
       cout << endl;
 
+      /*
       for (int i = 0; i < 3; ++i) {
-        ms.send(WheelID[i], 2, wheelGoal[i]);
+        yawPrev = yawDelta;
+        yawDelta = yawGoal - yaw;
+        if (yawDelta > 180) {
+          yawDelta -= 360;
+        } else if (yawDelta <= -180) {
+          yawDelta += 360;
+        }
+        moment = yawProp * yawDelta + yawInt * yawDelta * delta +
+                 yawDeff * (yawDelta - yawPrev) / delta;
+      }
+      */
+
+      for (int i = 0; i < 3; ++i) {
+        ms.send(WheelID[i], 2, wheelGoal[i] * SpeadLate);
       }
 
-      if (start - stop > StopTime && goal.shoot) {
-        phase = 1;
-      } else if (start - stop > 0.5 && !goal.shoot) {
-        phase = 1;
-      }
       break;
     }
     case 3: {
       // Shoot
       if (goal.shoot) {
+        for (int i = 0; i < 3; ++i) {
+          ms.send(WheelID[i], 2, 0);
+        }
         if (ms.send(ShootLID, 10, 0) == 2 && !flagShootR) {
           ms.send(ShootRID, 10, ShootR);
           ms.send(1, 30, shineR);
           flagShootR = true;
+          phase = 0;
         } else if (ms.send(ShootRID, 10, 0) == 2) {
           ms.send(ShootLID, 10, ShootL);
           ms.send(1, 30, shineL);
