@@ -146,6 +146,15 @@ int main(void) {
   constexpr double yawProp = 7.2, yawInt = 51.42, yawDeff = 0.252;
   // constexpr double yawProp = 10, yawInt = 185.4, yawDeff = 0.672;
 
+  // wheelSpead control from PID
+  int wheelCount[3] = {10, 10, 10}, wheelSpeadIn[3] = {},
+      wheelSpeadInPrev[3] = {};
+  long double wheelSpeadTimePrev[3] = {};
+  double wheelSpead[3] = {}, wheelDelta[3] = {}, wheelPrev[3] = {};
+  int wheelOut[3] = {};
+  constexpr double WheelProp[3] = {0.0021, 0.0021, 0.0021},
+                   WheelInt[3] = {0, 0, 0}, WheelDeff[3] = {0, 0, 0};
+
   gpioWrite(BCheck, 1);
   //----------Calibration----------
   while (1) {
@@ -168,7 +177,7 @@ int main(void) {
                          rotaryInc(10, 22, true)};
   int wheelIn[3] = {};
   int wheelInPrev[3] = {};
-  double wheelSpeed[3] = {};
+  double wheelDiff[3] = {};
 
   //----------Zone Check----------
   gpioWrite(ZoneRed, 1);
@@ -292,15 +301,26 @@ start:
     for (int i = 0; i < 3; ++i) {
       wheelInPrev[i] = wheelIn[i];
       wheelIn[i] = rotary[i].get();
-      wheelSpeed[i] =
+      wheelDiff[i] =
           (double)(wheelIn[i] - wheelInPrev[i]) * WheelCirc / (double)Range;
+      if (wheelCount[i] == 10) {
+        wheelSpeadInPrev[i] = wheelSpeadIn[i];
+        wheelSpeadIn[i] = wheelIn[i];
+        wheelSpead[i] = (double)(wheelSpeadIn[i] - wheelSpeadInPrev[i]) *
+                        WheelCirc / (double)Range /
+                        (start - wheelSpeadTimePrev[i]);
+        wheelSpeadTimePrev[i] = start;
+        wheelCount[i] = 0;
+      } else {
+        ++wheelCount[i];
+      }
     }
 
     //-----------Guess Field----------
     deltaX = deltaY = 0;
     for (int i = 0; i < 3; ++i) {
-      deltaX += MatrixPoint[0][i] * wheelSpeed[i];
-      deltaY += MatrixPoint[1][i] * wheelSpeed[i];
+      deltaX += MatrixPoint[0][i] * wheelDiff[i];
+      deltaY += MatrixPoint[1][i] * wheelDiff[i];
     }
     deltaL = hypot(deltaX, deltaY);
     deltaA = atan2(deltaY, deltaX);
@@ -463,40 +483,33 @@ start:
         }
       }
 
+      // wheelSpead control from PID
+      for (int i = 0; i < 3; ++i) {
+        wheelPrev[i] = wheelDelta[i];
+        wheelDelta[i] = wheelGoal[i] - wheelSpead[i];
+        wheelOut[i] += WheelProp[i] * wheelDelta[i] +
+                       WheelInt[i] * wheelDelta[i] * delta +
+                       WheelDeff[i] * (wheelDelta[i] - wheelPrev[i]) / delta;
+      }
+
       // Output
       // Data
       cout << start << ", ";
-      cout << goal.x << ", " << goal.y << ", " << goal.yaw << ", ";
-      cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw << ", ";
-      cout << velocityOut[0] << ", " << velocityOut[1];
-      /*
+      // cout << goal.x << ", " << goal.y << ", " << goal.yaw << ", ";
+      // cout << velocityOut[0] << ", " << velocityOut[1];
       for (int i = 0; i < 3; ++i) {
-        cout << (int)wheelGoal[i] << ", ";
+        cout << (int)wheelGoal[i] << ", " << wheelSpead[i] << ", ";
       }
-      cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw <<
-      endl;
+      cout << nowPoint[0] << ", " << nowPoint[1] << ", " << yaw;
+      /*
       for (int i = 0; i < 3; ++i) {
         cout << wheelIn[i] << ",";
       }
       */
       cout << endl;
 
-      /*
       for (int i = 0; i < 3; ++i) {
-        yawPrev = yawDelta;
-        yawDelta = yawGoal - yaw;
-        if (yawDelta > 180) {
-          yawDelta -= 360;
-        } else if (yawDelta <= -180) {
-          yawDelta += 360;
-        }
-        moment = yawProp * yawDelta + yawInt * yawDelta * delta +
-                 yawDeff * (yawDelta - yawPrev) / delta;
-      }
-      */
-
-      for (int i = 0; i < 3; ++i) {
-        ms.send(WheelID[i], 2, wheelGoal[i] * SpeadLate);
+        ms.send(WheelID[i], 2, wheelOut[i]);
       }
 
       break;
