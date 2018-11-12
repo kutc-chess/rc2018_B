@@ -32,8 +32,8 @@ void setup() {
   slave.addCMD(11, calibration);
 }
 
-constexpr int Spin = 30;
-constexpr int DelaySolenoid = 250, DelayLoad = 500, DelayArm = 1000, DelayHand = 475;
+constexpr int Spin = 60;
+constexpr int DelaySolenoid = 50, DelayLoad = 500, DelayArm = 2000, DelayHand = 500;
 int delayShoot = 310;
 constexpr int LimitFall = A3, LimitCatch = A2, LimitArm = A1, Solenoid[2] = {10, 11}, Arm = 3, Hand = 9, Magnet = 7;
 unsigned long now = millis();
