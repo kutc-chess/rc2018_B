@@ -468,14 +468,14 @@ start:
       moment /= SpeedLate;
 
       // WheelOut
-      int dummyMax = SpeedMax;
+      int dummyMax = SpeadMax;
       for (int i = 0; i < 3; ++i) {
         wheelGoal[i] = velocityR * wheel_Func(angleR + WheelDeg[i]) + moment;
         if (abs(wheelGoal[i]) > dummyMax) {
           dummyMax = abs(wheelGoal[i]);
         }
       }
-      wheelSlow = SpeedMax / (double)dummyMax;
+      wheelSlow = SpeadMax / (double)dummyMax;
 
       for (int i = 0; i < 3; ++i) {
         wheelGoal[i] *= wheelSlow;
